@@ -1,0 +1,706 @@
+)abbrev domain TOKENISE Tokeniser
+++ Author: Martin Baker
+++ Date Created: April 2014
+++ Date Last Updated: April 2014
+++ Description:
+++   This takes the input string and converts it to a list of tokens.
+++
+++ To do:
+++  * need to be able to split non-alphanumeric symbols
+++  for example a=-3 only works if we put space between = and -
+++  * floats not yet handled correctly
+++  for example 3e-5 would not work correctly
+++
+++   I have put specific information about this tokeniser here:
+++ http://www.euclideanspace.com/prog/scratchpad/mycode/system/interpreter/tokeniser/
+++   I have put more general information about running this code here:
+++ http://www.euclideanspace.com/prog/scratchpad/mycode/system/interpreter/
+
+Tokeniser : Exports == Implementation where
+  NNI==> NonNegativeInteger
+  TOKENTYPE ==> Symbol
+    ++ valid token types are:
+    ++id: Symbol
+    ++key: Symbol
+    ++integer: Symbol
+    ++rinteger: Symbol
+    ++float: Symbol
+    ++string: Symbol
+    ++comment: Symbol
+    ++negcomment: Symbol
+    ++error: Symbol
+    ++spaces: Symbol
+  TOKEN ==> Record(tt:TOKENTYPE,tokVal:String)
+  KEYS ==> List Record(a:String,b:String)
+    ++ perhaps this should be hash table?
+    ++ can be optimised later if needed
+
+  Exports == with
+
+    spadTokenise:(s:String) -> %
+      ++ constructor to put string into tokeniser
+    getAll:(n: %) -> List TOKEN
+      ++ gets complete list of tokens
+    next:(n: %) -> TOKEN
+      ++ gets but not consume next token
+    consume!:(n: %) -> TOKEN
+      ++ consume next token
+    consumeNonSpace!:(n: %) -> TOKEN
+      ++ consume next token stepping over spaces
+    more?:(n: %) -> Boolean
+      ++ true if has more
+    coerce: (n: %) -> OutputForm
+      ++ output
+  Implementation ==> add
+
+    Rep := Record (TokLst:List TOKEN,Ptr:NNI)
+      ++ list of tokens and pointer to this list.
+
+    -- gets complete list of tokens
+    getAll(n: %):List(TOKEN) ==
+      (n.TokLst) pretend List(TOKEN)
+
+    -- gets but not consume next token
+    next(n: %):TOKEN ==
+      p := n.Ptr
+      tl := n.TokLst
+      if p > (#tl) then return ["error"::Symbol,"more expected"]
+      ret:TOKEN := tl.p
+
+    -- consume next token
+    consume!(n: %):TOKEN ==
+      p := n.Ptr
+      tl := n.TokLst
+      if p > (#tl) then return ["error"::Symbol,"more expected"]
+      ret:TOKEN := tl.p
+      n.Ptr := p+1
+      ret
+
+    -- consume next token stepping over spaces
+    consumeNonSpace!(n: %):TOKEN ==
+      p := n.Ptr
+      tl := n.TokLst
+      if p > (#tl) then return ["error"::Symbol,"more expected"]
+      ret:TOKEN := tl.p
+      if ret.tt = "error"::Symbol then
+        p := p+1
+        if p > (#tl) then return ["error"::Symbol,"more expected"]
+        ret:TOKEN := tl.p
+      n.Ptr := p+1
+      ret
+
+    -- gets gets and consume next token
+    more?(n: %):Boolean ==
+      p := n.Ptr
+      tl := n.TokLst
+      (p > (#tl))
+
+    -- used by spadTokenise to make a token and check if
+    -- it is a key
+    makeToken(t:TOKENTYPE,s:String,keys:KEYS):TOKEN ==
+      for key in keys repeat
+        if s = key.a then return ["key"::Symbol,key.b]
+      [t,s]
+
+    -- constructor to put string into tokeniser
+    spadTokenise(s:String):% ==
+      keys:KEYS := [
+           ["add",      "add"], _
+           ["and",      "and"], _
+           ["break",   "break"], _
+           ["by",        "by"], _
+           ["case",     "case"], _
+           ["catch",  "catch"], _
+           ["default",  "DEFAULT" ],_
+           ["define",  "DEFN" ],_
+           ["do",        "DO"],_
+           ["else",    "else"], _
+           ["exquo",   "exquo"], _
+           ["export","EXPORT" ],_
+           ["finally", "finally"], _
+           ["for",      "for"], _
+           ["free",    "FREE" ],_
+           ["from",    "from"], _
+           ["generate", "generate"], _
+           ["goto",    "goto"], _
+           ["has",      "has"], _
+           ["if",       "if"], _
+           ["import", "import"], _
+           ["in", "in"], _
+           ["inline", "INLINE" ],_
+           ["is", "is"], _
+           ["isnt", "isnt"], _
+           ["iterate", "ITERATE"],_
+           ["local", "local"], _
+           ["macro", "MACRO" ],_
+           ["mod", "MOD" ],_
+           ["not", "not"], _
+           ["or", "or"], _
+           ["pretend", "pretend"], _
+           ["quo", "quo"], _
+           ["rem", "rem"], _
+           ["repeat", "repeat"],_
+           ["return", "return"],_
+           ["rule","RULE" ],_
+           ["then", "then"],_
+           ["try", "try"], _
+           ["until", "until"], _
+           ["where", "where"], _
+           ["while", "while"],_
+           ["with", "with"], _
+           ["yield", "yield"], _
+           ["|","BAR"],_
+           [".","DOT" ],_
+           ["::","COERCE" ],_
+           [":","COLON" ],_
+           [":-","COLONDASH" ],_
+           ["@","AT" ],_
+           ["@@","ATAT" ],_
+           [",","COMMA" ],_
+           [";","SEMICOLON" ],_
+           ["**","POWER" ],_
+           ["*","TIMES" ],_
+           ["+","PLUS" ],_
+           ["-","MINUS" ],_
+           ["<","LT" ],_
+           [">","GT" ],_
+           ["<=","LE" ],_
+           [">=","GE" ],_
+           ["=", "EQUAL"],_
+           ["~=","NOTEQUAL" ],_
+           ["~","~" ],_
+           ["^","CARAT" ],_
+           ["..","SEG" ],_
+           ["#","#" ],_
+           ["#1", "#1" ],_
+           ["&","AMPERSAND" ],_
+           ["$","$" ],_
+           ["/","SLASH" ],_
+           ["\","BACKSLASH" ],_
+           ["//","SLASHSLASH" ],_
+           ["\\","BACKSLASHBACKSLASH" ],_
+           ["/\","SLASHBACKSLASH" ],_
+           ["\/","BACKSLASHSLASH" ],_
+           ["=>","EXIT" ],_
+           [":=","BECOMES" ],_
+           ["==","DEF" ],_
+           ["==>","MDEF" ],_
+           ["->","ARROW" ],_
+           ["<-","LARROW" ],_
+           ["+->","GIVES" ],_
+           ["(","(" ],_
+           [")",")" ],_
+           ["(|","(|" ],_
+           ["|)","|)" ],_
+           ["[","[" ],_
+           ["]","]" ],_
+           ["[__]","[]" ],_
+           ["{","{" ],_
+           ["}","}" ],_
+           ["{__}","{}" ],_
+           ["[|","[|" ],_
+           ["|]","|]" ],_
+           ["[|__|]","[||]" ],_
+           ["{|","{|" ],_
+           ["|}","|}" ],_
+           ["{|__|}","{||}" ],_
+           ["<<","OANGLE" ],_
+           [">>","CANGLE" ],_
+           ["'", "'" ],_
+           ["`", "BACKQUOTE" ]_
+                         ]
+      res:List(TOKEN) := nil()$List(TOKEN)
+      cl:List Character := entries(s)
+      ttCur:TOKENTYPE := "null"::Symbol
+      startIndex:NNI := 1
+      for c in cl for i in 1..(#cl) repeat
+        ttThis:TOKENTYPE := "error"::Symbol
+        if c=space() then ttThis := "spaces"::Symbol
+        if alphabetic?(c) then ttThis := "id"::Symbol
+        nonAlphaNum:Boolean := not (alphanumeric?(c) or c=space())
+        if digit?(c) then ttThis := "integer"::Symbol
+        -- ids can have numeric characters but not the first
+        if ttCur="id"::Symbol and ttThis = "integer"::Symbol then
+          ttThis := "id"::Symbol
+        -- if reading a float don't change it to integer
+        if ttCur="float"::Symbol and ttThis = "integer"::Symbol then
+          ttThis := "float"::Symbol
+        -- float can contain . e or E
+        if ttCur="integer"::Symbol and (_
+          c=char(".") or c=char("e") or c=char("E")) then
+            ttThis := "float"::Symbol        
+            ttCur := "float"::Symbol        
+        if ttCur ~= ttThis then
+          if ttCur ~= "null"::Symbol then
+              subChars:List(Character) := [cl.x for x in (startIndex..(i-1))]
+              sub:String := construct(subChars)
+              res := concat(res,makeToken(ttCur,sub,keys))
+              startIndex := i
+          ttCur := ttThis
+      if ttCur ~= "null"::Symbol then
+        subChars:List(Character) := [cl.x for x in (startIndex..(#cl))]
+        sub:String := construct(subChars)
+        res := concat(res,makeToken(ttCur,sub,keys))$List(TOKEN)
+      [res,1]
+
+    coerce(n: %):OutputForm ==
+      toks:List(OutputForm) := nil()$List(OutputForm)
+      for v in n.TokLst repeat
+        tok:OutputForm := hconcat([(v.tt)::OutputForm,_
+          "="::OutputForm,_
+          (v.tokVal)::OutputForm_
+          ])
+        toks := concat(toks,tok)$List(OutputForm)
+      bracket(toks)
+@
+
+)abbrev domain PARSE Parser
+++ Author: Martin Baker
+++ Date Created: April 2014
+++ Date Last Updated: April 2014
+++ Description:
+++   This takes a list of tokens and converts it to a tree structure
+++   containing untyped values.
+++
+++
+++   I have put specific information about this parser here:
+++ http://www.euclideanspace.com/prog/scratchpad/mycode/system/interpreter/parser/
+++   I have put more general information about running this code here:
+++ http://www.euclideanspace.com/prog/scratchpad/mycode/system/interpreter/
+
+Parser : Exports == Implementation where
+  NNI==> NonNegativeInteger
+  TOKENTYPE ==> Symbol
+    ++ valid token types are:
+    ++id: Symbol
+    ++key: Symbol
+    ++integer: Symbol
+    ++rinteger: Symbol
+    ++float: Symbol
+    ++string: Symbol
+    ++comment: Symbol
+    ++negcomment: Symbol
+    ++error: Symbol
+    ++spaces: Symbol
+  TOKEN ==> Record(tt:TOKENTYPE,tokVal:String)
+
+  Exports == with
+
+    spadParse:(tl:Tokeniser) -> %
+      ++ constructor to construct tree from token list
+    spadParse1:(tl:Tokeniser,p:NNI) -> %
+      ++ only used by spadParse and subnode
+      ++ export this because its recursive
+    hasError?:(tr:%,guard:NNI) -> Boolean
+      ++ true if there is an error anywhere in the tree
+--    coerce: (n: %) -> OutputForm
+      ++ output
+      ++ tree can already be coerced to outputForm so this is not needed
+  Implementation ==> add
+
+    Rep := Tree TOKEN
+      ++ tree structure.
+
+    isError?(t:TOKEN):Boolean ==
+       t.tt = "error"::Symbol
+
+    -- true if there is an error anywhere in the tree
+    hasError?(tr:%,guard:NNI):Boolean ==
+      tr1:Tree(TOKEN) := tr pretend Tree(TOKEN)
+--      mathprint("hasError? called:")$Lisp
+--      print(tr1::OutputForm)
+      if guard>20 then return true
+      if cyclic?(tr1)$Tree(TOKEN) then return true
+      if empty?(tr1)$Tree(TOKEN) then return false
+      if leaf?(tr1)$Tree(TOKEN) then
+        v:TOKEN := value(tr1)$Tree(TOKEN)
+        return isError?(v)
+      nds:List(Tree(TOKEN)) := children(tr1)$Tree(TOKEN)
+      if #nds < 1 then return false
+--      mathprint("hasError? nds:=")$Lisp
+--      print(nds::OutputForm)
+      for nd in nds repeat
+--        mathprint("hasError? nd:=")$Lisp
+--        print(nd::OutputForm)
+        if hasError?(nd,guard+1) then return true
+      false
+
+    isKey?(t:TOKEN,s:String):Boolean ==
+      if t.tt ~= "key"::Symbol then return false
+      t.tokVal=s
+
+    binary?(t:TOKEN):Boolean ==
+      if isKey?(t,"PLUS") then return true
+      if isKey?(t,"TIMES") then return true
+      false
+
+    unary?(t:TOKEN):Boolean ==
+      if isKey?(t,"MINUS") then return true
+      false
+
+    isLeaf?(t:TOKEN):Boolean ==
+      if t.tt = "id"::Symbol then return true
+      if t.tt = "integer"::Symbol then return true
+      if t.tt = "rinteger"::Symbol then return true
+      if t.tt = "string"::Symbol then return true
+      if t.tt = "comment"::Symbol then return true
+      if t.tt = "negcomment"::Symbol then return true
+      if t.tt = "error"::Symbol then return true
+      false
+
+    leftPrec(t:TOKEN):NNI ==
+      if isKey?(t,"PLUS") then return 4
+      if isKey?(t,"TIMES") then return 8
+      0
+
+    rightPrec(t:TOKEN):NNI ==
+      if isKey?(t,"PLUS") then return 5
+      if isKey?(t,"TIMES") then return 9
+      0
+
+    subNode(tl:Tokeniser):% ==
+      res:Tree(TOKEN) := tree(["error"::Symbol,"invalid token"])
+      n:TOKEN := next(tl)
+--      mathprint("subNode token:")$Lisp
+--      print(bracket([n::OutputForm]))
+      if unary?(n) then
+        m:TOKEN := consumeNonSpace!(tl)
+        q:NNI := leftPrec(n)
+        leftOperand:Tree(TOKEN) := spadParse1(tl,q) pretend Tree(TOKEN)
+        return tree(n,[leftOperand])$Tree(TOKEN)
+      -- bracketed term does not need to be a node, we can
+      -- just save its contents as a branch
+      if isKey?(n,"(") then
+        m:TOKEN := consumeNonSpace!(tl)
+--        mathprint("subNode m=")$Lisp
+--        print(bracket([m::OutputForm]))
+--        leftOperand:Tree(TOKEN) := spadParse1(tl,0) pretend Tree(TOKEN)
+--        res:= tree(n,[leftOperand])$Tree(TOKEN)
+        res:= spadParse1(tl,0) pretend Tree(TOKEN)
+        -- consume opening bracket
+        m2:TOKEN := consumeNonSpace!(tl)
+--        mathprint("subNode m2=")$Lisp
+--        print(bracket([m2::OutputForm]))
+        if not isKey?(m2,")") then
+          leftOperand:Tree(TOKEN) := tree(["error"::Symbol,"mismatch brackets"])
+          res:= tree(n,[leftOperand])$Tree(TOKEN)
+        -- consume closing bracket
+        m2:TOKEN := consumeNonSpace!(tl)
+        return res
+      if isLeaf?(n) then
+        m:TOKEN := consumeNonSpace!(tl)
+        --q:NNI := leftPrec(n)
+        return tree(n)$Tree(TOKEN)
+      consumeNonSpace!(tl)
+      res    
+
+    -- construct tree from token list
+    -- tl is token stream
+    -- p is current precidence
+    spadParse1(tl:Tokeniser,p:NNI):% ==
+      res:Tree(TOKEN) := subNode(tl) pretend Tree(TOKEN)
+      n:TOKEN := next(tl)
+--      mathprint("spadParse1 start:")$Lisp
+--      print(bracket([n::OutputForm,leftPrec(n)::OutputForm,p::OutputForm,_
+--        binary?(n)::OutputForm]))
+      -- eat any binary ops unless precidence is less
+      -- at lowest level this is always called with p=0
+      -- so leftPrec(n) >= p will always be true at lowest
+      -- level so no binary is ever left dangling
+      while binary?(n) and leftPrec(n) >= p repeat
+        consumeNonSpace!(tl)
+        ql:NNI := leftPrec(n)
+        qr:NNI := rightPrec(n)
+        rightOperand:Tree(TOKEN) := spadParse1(tl,ql) pretend Tree(TOKEN)
+        if hasError?(rightOperand,0) then
+--          mathprint("spadParse1 error:")$Lisp
+--          n:= next(tl)
+--          print(bracket([n::OutputForm,leftPrec(n)::OutputForm,p::OutputForm,_
+--            rightOperand::OutputForm]))
+          return tree(n,[copy(res),rightOperand])$Tree(TOKEN)
+        res := tree(n,[copy(res),rightOperand])$Tree(TOKEN)
+        n:= next(tl)
+--      mathprint("spadParse1 end:")$Lisp
+--      print(bracket([n::OutputForm,leftPrec(n)::OutputForm,p::OutputForm,_
+--        binary?(n)::OutputForm]))
+      res
+
+    -- constructor to construct tree from token list
+    spadParse(tl:Tokeniser):% ==
+      spadParse1(tl,0)
+
+-- tree can already be coerced to outputForm so this is not needed
+--    coerce(n: %):OutputForm ==
+--      n::OutputForm
+@
+
+)abbrev domain TYPEM TypeMatcher
+++ Author: Martin Baker
+++ Date Created: April 2014
+++ Date Last Updated: April 2014
+++ Description:
+++   This takes a tree structure containing untyped values and
+++   attempts to add types.
+++
+++
+++   I have put specific information about this type matcher here:
+++ http://www.euclideanspace.com/prog/scratchpad/mycode/system/interpreter/typematch/
+++   I have put more general information about running this code here:
+++ http://www.euclideanspace.com/prog/scratchpad/mycode/system/interpreter/
+
+TypeMatcher : Exports == Implementation where
+  NNI==> NonNegativeInteger
+  TOKENTYPE ==> Symbol
+    ++ valid token types are:
+    ++id: Symbol
+    ++key: Symbol
+    ++integer: Symbol
+    ++rinteger: Symbol
+    ++float: Symbol
+    ++string: Symbol
+    ++comment: Symbol
+    ++negcomment: Symbol
+    ++error: Symbol
+    ++spaces: Symbol
+  TOKEN ==> Record(tt:TOKENTYPE,tokVal:String)
+  TYPEDVALUE ==> Record(tt:TOKENTYPE,tokVal:String)
+
+  Exports == with
+
+    spadTypeMatch:(tl:Parser) -> %
+      ++ constructor to construct tree from token list
+    hasError?:(tr:%,guard:NNI) -> Boolean
+      ++ true if there is an error anywhere in the tree
+--    coerce: (n: %) -> OutputForm
+      ++ output
+      ++ tree can already be coerced to outputForm so this is not needed
+  Implementation ==> add
+
+    Rep := Tree TYPEDVALUE
+      ++ tree structure.
+
+    isError?(t:TYPEDVALUE):Boolean ==
+       t.tt = "error"::Symbol
+
+    -- true if there is an error anywhere in the tree
+    hasError?(tr:%,guard:NNI):Boolean ==
+      tr1:Tree(TYPEDVALUE) := tr pretend Tree(TYPEDVALUE)
+--      mathprint("hasError? called:")$Lisp
+--      print(tr1::OutputForm)
+      if guard>20 then return true
+      if cyclic?(tr1)$Tree(TYPEDVALUE) then return true
+      if empty?(tr1)$Tree(TYPEDVALUE) then return false
+      if leaf?(tr1)$Tree(TYPEDVALUE) then
+        v:TYPEDVALUE := value(tr1)$Tree(TYPEDVALUE)
+        return isError?(v)
+      nds:List(Tree(TYPEDVALUE)) := children(tr1)$Tree(TYPEDVALUE)
+      if #nds < 1 then return false
+--      mathprint("hasError? nds:=")$Lisp
+--      print(nds::OutputForm)
+      for nd in nds repeat
+--        mathprint("hasError? nd:=")$Lisp
+--        print(nd::OutputForm)
+        if hasError?(nd,guard+1) then return true
+      false
+
+
+    -- constructor to construct tree from token list
+    spadTypeMatch(tl:Parser):% ==
+      empty()$Tree(TYPEDVALUE)
+
+-- tree can already be coerced to outputForm so this is not needed
+--    coerce(n: %):OutputForm ==
+--      n::OutputForm
+@
+
+)abbrev domain INTER Interpret
+++ Author: Martin Baker
+++ Date Created: April 2014
+++ Date Last Updated: April 2014
+++ Description:
+++   This is an experiment to see how much of the FriCAS
+++   interpreter that I can write using SPAD code.
+++   Currently the interpreter is written in 'boot' code. For
+++   example in int-top.boot, server.boot, i-toplev.boot
+++   i-syscmd.boot and many others.
+++
+++   Boot code is poorly documented and loosly typed. There
+++   would be lots of advantages if boot code were removed.
+++
+++   I have made this a domain so that it can hold parameters
+++   which would otherwise be global parameters in boot code.
+++
+++   When the constructor 'spadInterpret' is called it sets up
+++   the parameters and then goes into the main interpreter loop
+++   reading lines and then acting on them.
+++
+++   To start with the interpreter loop will just call the 
+++   existing lisp functions. The plan is to gradually implement
+++   more of these functions in high level code.
+++
+++   I have put information about running this code here:
+++ http://www.euclideanspace.com/prog/scratchpad/mycode/system/interpreter/
+++   The original interpreter is undocumented so I'm trying to
+++   bootstrap my understanding by working out what I can here:
+++ http://www.euclideanspace.com/prog/scratchpad/internals/interpreter/
+
+Interpret : Exports == Implementation where
+  NNI==> NonNegativeInteger
+  TOKENTYPE ==> Symbol
+    ++ valid token types are:
+    ++id: Symbol
+    ++key: Symbol
+    ++integer: Symbol
+    ++rinteger: Symbol
+    ++float: Symbol
+    ++string: Symbol
+    ++comment: Symbol
+    ++negcomment: Symbol
+    ++error: Symbol
+    ++spaces: Symbol
+  TOKEN ==> Record(tt:TOKENTYPE,tokVal:String)
+  TYPEDVALUE ==> Record(tt:TOKENTYPE,tokVal:String)
+
+  Exports == with
+
+    spadInterpret:() -> %
+      ++ constructor to setup parameters and run interpreter
+      ++ inside existing interpreter
+
+  Implementation ==> add
+  
+    import Tokeniser
+    import Parser
+    import TypeMatcher
+
+    Rep := Record(_
+      op: Symbol,_
+      Coerce: Symbol,_
+      compErrorMessageStack: Symbol,_
+      freeVars: Symbol,_
+      mapList: Symbol,_
+      compilingMap: Symbol,_
+      compilingLoop: Symbol,_
+      interpOnly: Symbol,_
+      whereCacheList: Symbol,_
+      timeGlobalName: Symbol,_
+      StreamFrame: Symbol,_
+      declaredMode: Symbol,_
+      localVars: Symbol,_
+      analyzingMapList: Symbol,_
+      lastLineInSEQ: Symbol,_
+      instantCoerceCount: Symbol,_
+      instantCanCoerceCount: Symbol,_
+      instantMmCondCount: Symbol,_
+      defaultFortVar:Symbol,_
+      fortVar: Symbol,_
+      defaultFortVar: Symbol,_
+      minivector: Symbol,_
+      minivectorCode: Symbol,_
+      minivectorNames: Symbol,_
+      domPvar: Symbol,_
+      inRetract: Symbol_
+    )
+      ++ parameters (was global parameters)
+      ++ I have just set everthing to Symbol for now but will
+      ++ set them to the correct high level types when I get
+      ++ to implementing code that needs them.
+
+    -- if a line starts with ) this indicates a system command
+    -- so this will be called
+    -- intended to replace ncloopCommand in
+    -- int-top.boot
+    processSystemCommand(s:String,param:%,lineNum:NNI):Boolean ==
+      ncloopCommand(s,lineNum)$Lisp
+      --InterpExecuteSpadSystemCommand(s)$Lisp
+      --doSystemCommand(s)$Lisp
+      --mathprint(concat(["process command",mathObject2String$Lisp c])$String)$Lisp
+      true
+
+    -- if a line is not a system command then this will be called
+    -- intended to replace intloopProcessString in
+    -- int-top.boot
+    processMath(s:String,param:%,lineNum:NNI):Boolean ==
+      --c := intloopProcessString(s,lineNum)$Lisp
+--      b := incString(s)$Lisp
+--      mathprint("token:")$Lisp
+--      print(b::OutputForm)
+--      c := lineoftoks(b)$Lisp
+--      mathprint("lineoftoks:")$Lisp
+--      print(c::OutputForm)
+--      d := parseFromString(s)$Lisp
+--      mathprint("parse:")$Lisp
+--      print(d::OutputForm)
+      mathprint("tokeniser:")$Lisp
+      tokList := spadTokenise(s)
+      print(tokList::OutputForm)
+      mathprint("parser:")$Lisp
+      parseTree := spadParse(tokList)
+      if hasError?(parseTree,0) then
+        mathprint("has error")$Lisp
+        print((parseTree pretend Tree(TOKEN))::OutputForm)
+        return true
+      print((parseTree pretend Tree(TOKEN))::OutputForm)
+      mathprint("type match:")$Lisp
+      typTree := spadTypeMatch(parseTree)
+      print((typTree pretend Tree(TYPEDVALUE))::OutputForm)
+      true
+
+    -- check for system commands 
+    -- check for continuation to line
+    -- then interpret.
+    -- intended to replace intLoopReadConsole in
+    -- int-top.boot
+    processString(s:String,param:%,lineNum:NNI):Boolean ==
+      if s=empty()$String then return true
+      if s="" then  return true
+      if s="q" then return false
+      if position(")",s,1) = 1 then
+        return processSystemCommand(s,param,lineNum)
+      processMath(s,param,lineNum)
+
+    -- constructor to setup parameters and run interpreter
+    -- inside existing interpreter
+    spadInterpret():% ==
+      -- setup global parameters 
+      param:% := ['X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X,_
+        'X]
+      keepGoing:Boolean := true
+      lineNum:NNI := 1
+      while keepGoing repeat
+        -- display prompt without carrage return
+        -- I have added m so that I know this interpreter is running
+        PRINC(concat(["(m",string(lineNum),") -> "])$String)$Lisp
+        FORCE_-OUTPUT()$Lisp
+        -- read a line from stdin to a string
+        s := (read_-line(_*STANDARD_-INPUT_*$Lisp)$Lisp)@String
+        --a := read_-line(_*STANDARD_-INPUT_*$Lisp)$Lisp :: Union(String, "failed")
+        --s:String := string(a) --a::String
+        keepGoing := processString(s,param,lineNum)
+        lineNum := lineNum + 1
+      param
+@
