@@ -20,6 +20,9 @@
 ++   Anyone writing code must ensure that rows are not accidently
 ++   given different lengths. It is faster if we can assume this
 ++   and dont have to check it each time.
+++
+++ For documentation see here:
+++ http://www.euclideanspace.com/prog/scratchpad/mycode/output/monospace/
 CharRectangle : Exports == Implementation where
   NNI==> NonNegativeInteger
 
@@ -385,6 +388,9 @@ CharRectangle : Exports == Implementation where
 ++ Description:
 ++    \spadtype{MonospaceFormat} provides a coercion from \spadtype{OutputForm}
 ++    to monospaced text.
+++
+++ For documentation see here:
+++ http://www.euclideanspace.com/prog/scratchpad/mycode/output/monospace/
 
 MonospaceFormat() : public == private where
   E      ==> OutputForm
