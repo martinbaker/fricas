@@ -18,6 +18,7 @@
 
 Tokeniser : Exports == Implementation where
   NNI==> NonNegativeInteger
+  SY==> Symbol
   TOKENTYPE ==> Symbol
     ++ valid token types are:
     ++id: Symbol
@@ -97,10 +98,83 @@ Tokeniser : Exports == Implementation where
 
     -- used by spadTokenise to make a token and check if
     -- it is a key
-    makeToken(t:TOKENTYPE,s:String,keys:KEYS):TOKEN ==
+--    makeToken(t:TOKENTYPE,s:String,keys:KEYS):TOKEN ==
+--      for key in keys repeat
+--        if s = key.a then return ["key"::Symbol,key.b]
+--      [t,s]
+
+    -- used by spadTokenise to make a symbolic token
+    makeSymToken(cl:List Character,startIndex:Integer,endIndex:Integer,keys:KEYS):TOKEN ==
+      t:TOKENTYPE := "id"::Symbol
+      subChars:List(Character) := [cl.x for x in (startIndex..(endIndex))]
+      s:String := construct(subChars)
       for key in keys repeat
         if s = key.a then return ["key"::Symbol,key.b]
       [t,s]
+
+    -- used by spadTokenise to make a integer token
+    makeIntToken(cl:List Character,startIndex:Integer,endIndex:Integer,keys:KEYS):TOKEN ==
+      t:TOKENTYPE := "integer"::Symbol
+      subChars:List(Character) := [cl.x for x in (startIndex..(endIndex))]
+      s:String := construct(subChars)
+      [t,s]
+
+    -- used by spadTokenise to make a float token
+    makeFloatToken(cl:List Character,startIndex:Integer,endIndex:Integer,keys:KEYS):TOKEN ==
+      t:TOKENTYPE := "id"::Symbol
+      subChars:List(Character) := [cl.x for x in (startIndex..(endIndex))]
+      s:String := construct(subChars)
+      [t,s]
+
+    -- used by spadTokenise to make a operator tokens
+    makeOperatorToken(cl:List Character,startIndex:Integer,endIndex:Integer,keys:KEYS):List(TOKEN) ==
+      t:TOKENTYPE := "id"::Symbol
+      subChars:List(Character) := [cl.x for x in (startIndex..(endIndex))]
+      s:String := construct(subChars)
+      for key in keys repeat
+        if s = key.a then return [["key"::Symbol,key.b]]
+      [[t,s]]
+
+    -- used by spadTokenise to make a space token
+    makeSpaceToken(cl:List Character,startIndex:Integer,endIndex:Integer,keys:KEYS):TOKEN ==
+      t:TOKENTYPE := "space"::Symbol
+      subChars:List(Character) := [cl.x for x in (startIndex..(endIndex))]
+      s:String := construct(subChars)
+      [t,s]
+
+    -- used by spadTokenise to make a string token
+    makeStringToken(cl:List Character,startIndex:Integer,endIndex:Integer,keys:KEYS):TOKEN ==
+      t:TOKENTYPE := "string"::Symbol
+      subChars:List(Character) := [cl.x for x in (startIndex..(endIndex))]
+      s:String := construct(subChars)
+      [t,s]
+
+    lookupStateTable(current:SY,inp:SY):SY ==
+      -- 'stateTable' gives next state for possible inputs.
+      -- This table is explained more fully here:
+      -- http://www.euclideanspace.com/prog/scratchpad/mycode/system/interpreter/tokeniser/
+      stateTable:List List Symbol := [_
+        ["space"::SY,"string"::SY,"sym"::SY,"integ"::SY,"op"::SY],_
+        ["space"::SY,"string"::SY,"sym"::SY,"integ"::SY,"op"::SY],_
+        ["string"::SY,"init"::SY,"string"::SY,"string"::SY,"string"::SY],_
+        ["space"::SY,"string"::SY,"sym"::SY,"sym"::SY,"op"::SY],_
+        ["space"::SY,"string"::SY,"sym"::SY,"integ"::SY,"op"::SY],_
+        ["space"::SY,"string"::SY,"sym"::SY,"float"::SY,"op"::SY],_
+        ["space"::SY,"string"::SY,"sym"::SY,"integ"::SY,"op"::SY],_
+        ["comment"::SY,"comment"::SY,"comment"::SY,"comment"::SY,"comment"::SY]]
+      inputStates:List Symbol := ["init"::SY,"space"::SY,"string"::SY,"sym"::SY,_
+            "integ"::SY,"float"::SY,"op"::SY,"comment"::SY]
+      inputChar:List Symbol := ["space"::SY,"quote"::SY,"alpha"::SY,_
+             "numeric"::SY,"other"::SY]
+      stateIn:Integer := position(current,inputStates,1)$List(Symbol)
+      --print(hconcat([outputForm("stateIn:"),outputForm(stateIn),_
+      --              outputForm(" current"),outputForm(current)])$OutputForm)
+      if stateIn < 1 then return "error"::SY
+      charIn:Integer := position(inp,inputChar,1)$List(Symbol)
+      --print(hconcat([outputForm("charIn:"),outputForm(charIn)])$OutputForm)
+      if charIn < 1 then return "error"::SY
+      --print(hconcat([outputForm("lookup:"),outputForm((stateTable.stateIn).charIn)])$OutputForm)
+      (stateTable.stateIn).charIn
 
     -- constructor to put string into tokeniser
     spadTokenise(s:String):% ==
@@ -207,41 +281,99 @@ Tokeniser : Exports == Implementation where
            ["<<","OANGLE" ],_
            [">>","CANGLE" ],_
            ["'", "'" ],_
-           ["`", "BACKQUOTE" ]_
-                         ]
+           ["`", "BACKQUOTE" ]]
+      -- res holds result (tokens generated) so far,
       res:List(TOKEN) := nil()$List(TOKEN)
+      -- input string as list of characters
       cl:List Character := entries(s)
+      -- current token type being read
       ttCur:TOKENTYPE := "null"::Symbol
       startIndex:NNI := 1
+      -- state - acts like a state machine as we step through the line
+      -- valid states are:
+      -- 'init' - initial state at start of line or after a space
+      -- 'space' - after a space
+      -- 'sym' - first character is alphbetic then alphbetic or
+      --         numeric but not operator or punctation
+      -- 'integ' - purely numeric ('-' prefix not part of token)
+      -- 'float' - first character is numeric then numeric or
+      --           '.' or 'e' or 'E'
+      -- 'op' - reading operator or punctation but not space
+      --        alphbetic or numeric
+      state:SY := "init"::SY
+      inp:SY
+      -- step through line one character at a time.
       for c in cl for i in 1..(#cl) repeat
-        ttThis:TOKENTYPE := "error"::Symbol
-        if c=space() then ttThis := "spaces"::Symbol
-        if alphabetic?(c) then ttThis := "id"::Symbol
-        nonAlphaNum:Boolean := not (alphanumeric?(c) or c=space())
-        if digit?(c) then ttThis := "integer"::Symbol
-        -- ids can have numeric characters but not the first
-        if ttCur="id"::Symbol and ttThis = "integer"::Symbol then
-          ttThis := "id"::Symbol
-        -- if reading a float don't change it to integer
-        if ttCur="float"::Symbol and ttThis = "integer"::Symbol then
-          ttThis := "float"::Symbol
-        -- float can contain . e or E
-        if ttCur="integer"::Symbol and (_
-          c=char(".") or c=char("e") or c=char("E")) then
-            ttThis := "float"::Symbol        
-            ttCur := "float"::Symbol        
-        if ttCur ~= ttThis then
-          if ttCur ~= "null"::Symbol then
-              subChars:List(Character) := [cl.x for x in (startIndex..(i-1))]
-              sub:String := construct(subChars)
-              res := concat(res,makeToken(ttCur,sub,keys))
-              startIndex := i
-          ttCur := ttThis
-      if ttCur ~= "null"::Symbol then
-        subChars:List(Character) := [cl.x for x in (startIndex..(#cl))]
-        sub:String := construct(subChars)
-        res := concat(res,makeToken(ttCur,sub,keys))$List(TOKEN)
+        --inputChar:List Symbol := ["space"::SY,"quote"::SY,"alpha"::SY,_
+        --     "numeric"::SY,"other"::SY]
+        inp := "other"::SY
+        if c=space() then inp := "space"::SY
+        if c=quote() then inp := "quote"::SY
+        if alphabetic?(c) then inp := "alpha"::SY
+        if digit?(c) then inp := "numeric"::SY
+        newState:SY := lookupStateTable(state,inp)
+        --print(hconcat([outputForm("spadTokenise:"),outputForm(newState)])$OutputForm)
+        if newState~=state then
+          if state="sym"::SY then
+            res := concat(res,makeSymToken(cl,startIndex,i-1,keys))
+          if state="integ"::SY then
+            res := concat(res,makeIntToken(cl,startIndex,i-1,keys))
+          if state="float"::SY then
+            res := concat(res,makeFloatToken(cl,startIndex,i-1,keys))
+          if state="op"::SY then
+            res := concat(res,makeOperatorToken(cl,startIndex,i-1,keys))
+          if state="space"::SY then
+            res := concat(res,makeSpaceToken(cl,startIndex,i-1,keys))
+          if state="string"::SY then
+            res := concat(res,makeStringToken(cl,startIndex,i-1,keys))
+          startIndex := i
+        state := newState
+      -- write the last token
+      if state="init"::SY then
+        return [res,1]
+      if state="sym"::SY then
+        res := concat(res,makeSymToken(cl,startIndex,#cl,keys))
+      if state="integ"::SY then
+        res := concat(res,makeIntToken(cl,startIndex,#cl,keys))
+      if state="float"::SY then
+        res := concat(res,makeFloatToken(cl,startIndex,#cl,keys))
+      if state="op"::SY then
+        res := concat(res,makeOperatorToken(cl,startIndex,#cl,keys))
+      if state="space"::SY then
+        res := concat(res,makeSpaceToken(cl,startIndex,#cl,keys))
+      if state="string"::SY then
+        res := concat(res,makeStringToken(cl,startIndex,#cl,keys))
       [res,1]
+        
+--        ttThis:TOKENTYPE := "error"::Symbol
+--        if c=space() then ttThis := "spaces"::Symbol
+--        if alphabetic?(c) then ttThis := "id"::Symbol
+--        -- non-alphanumeric symbols like '+' and '-'
+--        nonAlphaNum:Boolean := not (alphanumeric?(c) or c=space())
+--        if digit?(c) then ttThis := "integer"::Symbol
+--        -- ids can have numeric characters but not the first
+--        if ttCur="id"::Symbol and ttThis = "integer"::Symbol then
+--          ttThis := "id"::Symbol
+--        -- if reading a float don't change it to integer
+--        if ttCur="float"::Symbol and ttThis = "integer"::Symbol then
+--          ttThis := "float"::Symbol
+--        -- float can contain . e or E
+--        if ttCur="integer"::Symbol and (_
+--          c=char(".") or c=char("e") or c=char("E")) then
+--            ttThis := "float"::Symbol        
+--            ttCur := "float"::Symbol        
+--        if ttCur ~= ttThis then
+--          if ttCur ~= "null"::Symbol then
+--              subChars:List(Character) := [cl.x for x in (startIndex..(i-1))]
+--              sub:String := construct(subChars)
+--              res := concat(res,makeToken(ttCur,sub,keys))
+--              startIndex := i
+--          ttCur := ttThis
+--      if ttCur ~= "null"::Symbol then
+--        subChars:List(Character) := [cl.x for x in (startIndex..(#cl))]
+--        sub:String := construct(subChars)
+--        res := concat(res,makeToken(ttCur,sub,keys))$List(TOKEN)
+--      [res,1]
 
     coerce(n: %):OutputForm ==
       toks:List(OutputForm) := nil()$List(OutputForm)
