@@ -31,8 +31,8 @@ Tokeniser : Exports == Implementation where
     ++negcomment: Symbol
     ++error: Symbol
     ++spaces: Symbol
-  TOKEN ==> Record(tt:TOKENTYPE,tokVal:String)
-  KEYS ==> List Record(a:String,b:String)
+  TOKEN ==> Record(tt:TOKENTYPE,tokVal:Union(strng:String,symbl:Symbol))
+  KEYS ==> List Record(a:String,b:Symbol,c:NNI,d:NNI)
     ++ perhaps this should be hash table?
     ++ can be optimised later if needed
 
@@ -63,16 +63,18 @@ Tokeniser : Exports == Implementation where
 
     -- gets but not consume next token
     next(n: %):TOKEN ==
+      -- p = pointer to next token
       p := n.Ptr
+      -- tl = current list of tokens
       tl := n.TokLst
-      if p > (#tl) then return ["error"::Symbol,"more expected"]
+      if p > (#tl) then return ["error"::Symbol,["more expected"]]
       ret:TOKEN := tl.p
 
     -- consume next token
     consume!(n: %):TOKEN ==
       p := n.Ptr
       tl := n.TokLst
-      if p > (#tl) then return ["error"::Symbol,"more expected"]
+      if p > (#tl) then return ["error"::Symbol,["more expected"]]
       ret:TOKEN := tl.p
       n.Ptr := p+1
       ret
@@ -81,11 +83,11 @@ Tokeniser : Exports == Implementation where
     consumeNonSpace!(n: %):TOKEN ==
       p := n.Ptr
       tl := n.TokLst
-      if p > (#tl) then return ["error"::Symbol,"more expected"]
+      if p > (#tl) then return ["error"::Symbol,["more expected"]]
       ret:TOKEN := tl.p
       if ret.tt = "error"::Symbol then
         p := p+1
-        if p > (#tl) then return ["error"::Symbol,"more expected"]
+        if p > (#tl) then return ["error"::Symbol,["more expected"]]
         ret:TOKEN := tl.p
       n.Ptr := p+1
       ret
@@ -96,58 +98,76 @@ Tokeniser : Exports == Implementation where
       tl := n.TokLst
       (p > (#tl))
 
-    -- used by spadTokenise to make a token and check if
-    -- it is a key
---    makeToken(t:TOKENTYPE,s:String,keys:KEYS):TOKEN ==
---      for key in keys repeat
---        if s = key.a then return ["key"::Symbol,key.b]
---      [t,s]
-
     -- used by spadTokenise to make a symbolic token
     makeSymToken(cl:List Character,startIndex:Integer,endIndex:Integer,keys:KEYS):TOKEN ==
       t:TOKENTYPE := "id"::Symbol
       subChars:List(Character) := [cl.x for x in (startIndex..(endIndex))]
       s:String := construct(subChars)
       for key in keys repeat
-        if s = key.a then return ["key"::Symbol,key.b]
-      [t,s]
+        if s = key.a then return ["key"::Symbol,[key.b]]
+      [t,[s]]
 
     -- used by spadTokenise to make a integer token
     makeIntToken(cl:List Character,startIndex:Integer,endIndex:Integer,keys:KEYS):TOKEN ==
       t:TOKENTYPE := "integer"::Symbol
       subChars:List(Character) := [cl.x for x in (startIndex..(endIndex))]
       s:String := construct(subChars)
-      [t,s]
+      [t,[s]]
 
     -- used by spadTokenise to make a float token
     makeFloatToken(cl:List Character,startIndex:Integer,endIndex:Integer,keys:KEYS):TOKEN ==
       t:TOKENTYPE := "id"::Symbol
       subChars:List(Character) := [cl.x for x in (startIndex..(endIndex))]
       s:String := construct(subChars)
-      [t,s]
+      [t,[s]]
 
-    -- used by spadTokenise to make a operator tokens
-    makeOperatorToken(cl:List Character,startIndex:Integer,endIndex:Integer,keys:KEYS):List(TOKEN) ==
-      t:TOKENTYPE := "id"::Symbol
+    -- used by makeOperatorTokens
+    lookupOperatorToken(cl:List Character,startIndex:Integer,endIndex:Integer,keys:KEYS):TOKEN ==
+      t:TOKENTYPE := "error"::Symbol
       subChars:List(Character) := [cl.x for x in (startIndex..(endIndex))]
       s:String := construct(subChars)
+      --print(hconcat([outputForm("lookupOperatorToken s="),outputForm(s)])$OutputForm)
       for key in keys repeat
-        if s = key.a then return [["key"::Symbol,key.b]]
-      [[t,s]]
+        if s = key.a then return ["key"::Symbol,[key.b]]
+      [t,[s]]
+
+    -- used by spadTokenise to make operator tokens
+    -- first try to match whole input to keywords, if that does not
+    -- work then, try splitting input. For instance, imagine we have
+    -- a line like:
+    -- a:=-3
+    -- then this function would be called with ':=-' as its input
+    -- which does not match a keyword so we try spitting it.
+    -- ':' and '=-' don't both match so we try:
+    -- ':=' and '-' which do both match.
+    makeOperatorToken(cl:List Character,startIndex:Integer,endIndex:Integer,keys:KEYS):List(TOKEN) ==
+      -- first check if we can match whole thing
+      candidateToken:TOKEN := lookupOperatorToken(cl,startIndex,endIndex,keys)
+      if candidateToken.tt ~= "error"::Symbol then
+        return [candidateToken]
+      -- no match found for whole input so try splitting
+      -- first make sure it is long enough to split
+      if (endIndex - startIndex) < 1 then return [["error"::Symbol,["no match"]]]
+      for midIndex in startIndex..endIndex repeat
+        tokenA:TOKEN := lookupOperatorToken(cl,startIndex,midIndex,keys)
+        tokenB:TOKEN := lookupOperatorToken(cl,midIndex+1,endIndex,keys)
+        if (tokenA.tt ~= "error"::Symbol) and (tokenB.tt ~= "error"::Symbol) then
+          return [tokenA,tokenB]
+      [["error"::Symbol,["no match"]]]
 
     -- used by spadTokenise to make a space token
     makeSpaceToken(cl:List Character,startIndex:Integer,endIndex:Integer,keys:KEYS):TOKEN ==
       t:TOKENTYPE := "space"::Symbol
       subChars:List(Character) := [cl.x for x in (startIndex..(endIndex))]
       s:String := construct(subChars)
-      [t,s]
+      [t,[s]]
 
     -- used by spadTokenise to make a string token
     makeStringToken(cl:List Character,startIndex:Integer,endIndex:Integer,keys:KEYS):TOKEN ==
       t:TOKENTYPE := "string"::Symbol
       subChars:List(Character) := [cl.x for x in (startIndex..(endIndex))]
       s:String := construct(subChars)
-      [t,s]
+      [t,[s]]
 
     lookupStateTable(current:SY,inp:SY):SY ==
       -- 'stateTable' gives next state for possible inputs.
@@ -179,109 +199,109 @@ Tokeniser : Exports == Implementation where
     -- constructor to put string into tokeniser
     spadTokenise(s:String):% ==
       keys:KEYS := [
-           ["add",      "add"], _
-           ["and",      "and"], _
-           ["break",   "break"], _
-           ["by",        "by"], _
-           ["case",     "case"], _
-           ["catch",  "catch"], _
-           ["default",  "DEFAULT" ],_
-           ["define",  "DEFN" ],_
-           ["do",        "DO"],_
-           ["else",    "else"], _
-           ["exquo",   "exquo"], _
-           ["export","EXPORT" ],_
-           ["finally", "finally"], _
-           ["for",      "for"], _
-           ["free",    "FREE" ],_
-           ["from",    "from"], _
-           ["generate", "generate"], _
-           ["goto",    "goto"], _
-           ["has",      "has"], _
-           ["if",       "if"], _
-           ["import", "import"], _
-           ["in", "in"], _
-           ["inline", "INLINE" ],_
-           ["is", "is"], _
-           ["isnt", "isnt"], _
-           ["iterate", "ITERATE"],_
-           ["local", "local"], _
-           ["macro", "MACRO" ],_
-           ["mod", "MOD" ],_
-           ["not", "not"], _
-           ["or", "or"], _
-           ["pretend", "pretend"], _
-           ["quo", "quo"], _
-           ["rem", "rem"], _
-           ["repeat", "repeat"],_
-           ["return", "return"],_
-           ["rule","RULE" ],_
-           ["then", "then"],_
-           ["try", "try"], _
-           ["until", "until"], _
-           ["where", "where"], _
-           ["while", "while"],_
-           ["with", "with"], _
-           ["yield", "yield"], _
-           ["|","BAR"],_
-           [".","DOT" ],_
-           ["::","COERCE" ],_
-           [":","COLON" ],_
-           [":-","COLONDASH" ],_
-           ["@","AT" ],_
-           ["@@","ATAT" ],_
-           [",","COMMA" ],_
-           [";","SEMICOLON" ],_
-           ["**","POWER" ],_
-           ["*","TIMES" ],_
-           ["+","PLUS" ],_
-           ["-","MINUS" ],_
-           ["<","LT" ],_
-           [">","GT" ],_
-           ["<=","LE" ],_
-           [">=","GE" ],_
-           ["=", "EQUAL"],_
-           ["~=","NOTEQUAL" ],_
-           ["~","~" ],_
-           ["^","CARAT" ],_
-           ["..","SEG" ],_
-           ["#","#" ],_
-           ["#1", "#1" ],_
-           ["&","AMPERSAND" ],_
-           ["$","$" ],_
-           ["/","SLASH" ],_
-           ["\","BACKSLASH" ],_
-           ["//","SLASHSLASH" ],_
-           ["\\","BACKSLASHBACKSLASH" ],_
-           ["/\","SLASHBACKSLASH" ],_
-           ["\/","BACKSLASHSLASH" ],_
-           ["=>","EXIT" ],_
-           [":=","BECOMES" ],_
-           ["==","DEF" ],_
-           ["==>","MDEF" ],_
-           ["->","ARROW" ],_
-           ["<-","LARROW" ],_
-           ["+->","GIVES" ],_
-           ["(","(" ],_
-           [")",")" ],_
-           ["(|","(|" ],_
-           ["|)","|)" ],_
-           ["[","[" ],_
-           ["]","]" ],_
-           ["[__]","[]" ],_
-           ["{","{" ],_
-           ["}","}" ],_
-           ["{__}","{}" ],_
-           ["[|","[|" ],_
-           ["|]","|]" ],_
-           ["[|__|]","[||]" ],_
-           ["{|","{|" ],_
-           ["|}","|}" ],_
-           ["{|__|}","{||}" ],_
-           ["<<","OANGLE" ],_
-           [">>","CANGLE" ],_
-           ["'", "'" ],_
-           ["`", "BACKQUOTE" ]]
+           ["add","add"::SY,0,0], _
+           ["and","and"::SY,0,0], _
+           ["break","break"::SY,0,0], _
+           ["by","by"::SY,0,0], _
+           ["case","case"::SY,0,0], _
+           ["catch","catch"::SY,0,0], _
+           ["default","DEFAULT"::SY,0,0],_
+           ["define","DEFN"::SY,0,0],_
+           ["do","DO"::SY,0,0],_
+           ["else","else"::SY,0,0], _
+           ["exquo","exquo"::SY,0,0], _
+           ["export","EXPORT"::SY,0,0],_
+           ["finally","finally"::SY,0,0], _
+           ["for","for"::SY,0,0], _
+           ["free","FREE"::SY,0,0],_
+           ["from","from"::SY,0,0], _
+           ["generate","generate"::SY,0,0], _
+           ["goto","goto"::SY,0,0], _
+           ["has","has"::SY,0,0], _
+           ["if","if"::SY,0,0], _
+           ["import","import"::SY,0,0], _
+           ["in","in"::SY,0,0], _
+           ["inline","INLINE"::SY,0,0],_
+           ["is","is"::SY,0,0], _
+           ["isnt","isnt"::SY,0,0], _
+           ["iterate","ITERATE"::SY,0,0],_
+           ["local","local"::SY,0,0], _
+           ["macro","MACRO"::SY,0,0],_
+           ["mod","MOD"::SY,0,0],_
+           ["not","not"::SY,0,0], _
+           ["or","or"::SY,0,0], _
+           ["pretend","pretend"::SY,0,0], _
+           ["quo","quo"::SY,0,0], _
+           ["rem","rem"::SY,0,0], _
+           ["repeat","repeat"::SY,0,0],_
+           ["return","return"::SY,0,0],_
+           ["rule","RULE"::SY,0,0],_
+           ["then","then"::SY,0,0],_
+           ["try","try"::SY,0,0], _
+           ["until","until"::SY,0,0], _
+           ["where","where"::SY,0,0], _
+           ["while","while"::SY,0,0],_
+           ["with","with"::SY,0,0], _
+           ["yield","yield"::SY,0,0], _
+           ["|","BAR"::SY,0,0],_
+           [".","DOT"::SY,0,0],_
+           ["::","COERCE"::SY,0,0],_
+           [":","COLON"::SY,0,0],_
+           [":-","COLONDASH"::SY,0,0],_
+           ["@","AT"::SY,0,0],_
+           ["@@","ATAT"::SY,0,0],_
+           [",","COMMA"::SY,0,0],_
+           [";","SEMICOLON"::SY,0,0],_
+           ["**","POWER"::SY,0,0],_
+           ["*","TIMES"::SY,0,0],_
+           ["+","PLUS"::SY,0,0],_
+           ["-","MINUS"::SY,0,0],_
+           ["<","LT"::SY,0,0],_
+           [">","GT"::SY,0,0],_
+           ["<=","LE"::SY,0,0],_
+           [">=","GE"::SY,0,0],_
+           ["=", "EQUAL"::SY,0,0],_
+           ["~=","NOTEQUAL"::SY,0,0],_
+           ["~","~"::SY,0,0],_
+           ["^","CARAT"::SY,0,0],_
+           ["..","SEG"::SY,0,0],_
+           ["#","#"::SY,0,0],_
+           ["#1","#1"::SY,0,0],_
+           ["&","AMPERSAND"::SY,0,0],_
+           ["$","$"::SY,0,0],_
+           ["/","SLASH"::SY,0,0],_
+           ["\","BACKSLASH"::SY,0,0],_
+           ["//","SLASHSLASH"::SY,0,0],_
+           ["\\","BACKSLASHBACKSLASH"::SY,0,0],_
+           ["/\","SLASHBACKSLASH"::SY,0,0],_
+           ["\/","BACKSLASHSLASH"::SY,0,0],_
+           ["=>","EXIT"::SY,0,0],_
+           [":=","BECOMES"::SY,0,0],_
+           ["==","DEF"::SY,0,0],_
+           ["==>","MDEF"::SY,0,0],_
+           ["->","ARROW"::SY,0,0],_
+           ["<-","LARROW"::SY,0,0],_
+           ["+->","GIVES"::SY,0,0],_
+           ["(","("::SY,0,0],_
+           [")",")"::SY,0,0],_
+           ["(|","(|"::SY,0,0],_
+           ["|)","|)"::SY,0,0],_
+           ["[","["::SY,0,0],_
+           ["]","]"::SY,0,0],_
+           ["[__]","[]"::SY,0,0],_
+           ["{","{"::SY,0,0],_
+           ["}","}"::SY,0,0],_
+           ["{__}","{}"::SY,0,0],_
+           ["[|","[|"::SY,0,0],_
+           ["|]","|]"::SY,0,0],_
+           ["[|__|]","[||]"::SY,0,0],_
+           ["{|","{|"::SY,0,0],_
+           ["|}","|}"::SY,0,0],_
+           ["{|__|}","{||}"::SY,0,0],_
+           ["<<","OANGLE"::SY,0,0],_
+           [">>","CANGLE"::SY,0,0],_
+           ["'","'"::SY,0,0],_
+           ["`","BACKQUOTE"::SY,0,0]]
       -- res holds result (tokens generated) so far,
       res:List(TOKEN) := nil()$List(TOKEN)
       -- input string as list of characters
@@ -345,36 +365,6 @@ Tokeniser : Exports == Implementation where
         res := concat(res,makeStringToken(cl,startIndex,#cl,keys))
       [res,1]
         
---        ttThis:TOKENTYPE := "error"::Symbol
---        if c=space() then ttThis := "spaces"::Symbol
---        if alphabetic?(c) then ttThis := "id"::Symbol
---        -- non-alphanumeric symbols like '+' and '-'
---        nonAlphaNum:Boolean := not (alphanumeric?(c) or c=space())
---        if digit?(c) then ttThis := "integer"::Symbol
---        -- ids can have numeric characters but not the first
---        if ttCur="id"::Symbol and ttThis = "integer"::Symbol then
---          ttThis := "id"::Symbol
---        -- if reading a float don't change it to integer
---        if ttCur="float"::Symbol and ttThis = "integer"::Symbol then
---          ttThis := "float"::Symbol
---        -- float can contain . e or E
---        if ttCur="integer"::Symbol and (_
---          c=char(".") or c=char("e") or c=char("E")) then
---            ttThis := "float"::Symbol        
---            ttCur := "float"::Symbol        
---        if ttCur ~= ttThis then
---          if ttCur ~= "null"::Symbol then
---              subChars:List(Character) := [cl.x for x in (startIndex..(i-1))]
---              sub:String := construct(subChars)
---              res := concat(res,makeToken(ttCur,sub,keys))
---              startIndex := i
---          ttCur := ttThis
---      if ttCur ~= "null"::Symbol then
---        subChars:List(Character) := [cl.x for x in (startIndex..(#cl))]
---        sub:String := construct(subChars)
---        res := concat(res,makeToken(ttCur,sub,keys))$List(TOKEN)
---      [res,1]
-
     coerce(n: %):OutputForm ==
       toks:List(OutputForm) := nil()$List(OutputForm)
       for v in n.TokLst repeat
@@ -402,6 +392,7 @@ Tokeniser : Exports == Implementation where
 
 Parser : Exports == Implementation where
   NNI==> NonNegativeInteger
+  SY==> Symbol
   TOKENTYPE ==> Symbol
     ++ valid token types are:
     ++id: Symbol
@@ -414,7 +405,7 @@ Parser : Exports == Implementation where
     ++negcomment: Symbol
     ++error: Symbol
     ++spaces: Symbol
-  TOKEN ==> Record(tt:TOKENTYPE,tokVal:String)
+  TOKEN ==> Record(tt:TOKENTYPE,tokVal:Union(strng:String,symbl:Symbol))
 
   Exports == with
 
@@ -434,7 +425,7 @@ Parser : Exports == Implementation where
       ++ tree structure.
 
     isError?(t:TOKEN):Boolean ==
-       t.tt = "error"::Symbol
+       t.tt = "error"::SY
 
     -- true if there is an error anywhere in the tree
     hasError?(tr:%,guard:NNI):Boolean ==
@@ -457,20 +448,29 @@ Parser : Exports == Implementation where
         if hasError?(nd,guard+1) then return true
       false
 
-    isKey?(t:TOKEN,s:String):Boolean ==
+    -- error (t.tokVal) pretend SY) giving '1()'
+    isKey?(t:TOKEN,s:SY):Boolean ==
       if t.tt ~= "key"::Symbol then return false
-      t.tokVal=s
+      if (t.tokVal) case symbl then
+        --print(hconcat([outputForm("isKey?"),t::OutputForm,_
+        --  outputForm(" s="),outputForm(s),_
+        --  outputForm(" tokVal="),outputForm((t.tokVal).symbl)])$OutputForm)
+        return ((t.tokVal).symbl)=s
+      false
 
     binary?(t:TOKEN):Boolean ==
-      if isKey?(t,"PLUS") then return true
-      if isKey?(t,"TIMES") then return true
+      --print(hconcat([outputForm("binary?"),t::OutputForm])$OutputForm)
+      if isKey?(t,"PLUS"::SY) then return true
+      if isKey?(t,"TIMES"::SY) then return true
+      --print(hconcat([outputForm("binary? false")])$OutputForm)
       false
 
     unary?(t:TOKEN):Boolean ==
-      if isKey?(t,"MINUS") then return true
+      if isKey?(t,"MINUS"::SY) then return true
       false
 
     isLeaf?(t:TOKEN):Boolean ==
+      --print(hconcat([outputForm("isLeaf?"),t::OutputForm])$OutputForm)
       if t.tt = "id"::Symbol then return true
       if t.tt = "integer"::Symbol then return true
       if t.tt = "rinteger"::Symbol then return true
@@ -478,20 +478,21 @@ Parser : Exports == Implementation where
       if t.tt = "comment"::Symbol then return true
       if t.tt = "negcomment"::Symbol then return true
       if t.tt = "error"::Symbol then return true
+      --print(hconcat([outputForm("isLeaf? false")])$OutputForm)
       false
 
     leftPrec(t:TOKEN):NNI ==
-      if isKey?(t,"PLUS") then return 4
-      if isKey?(t,"TIMES") then return 8
+      if isKey?(t,"PLUS"::SY) then return 4
+      if isKey?(t,"TIMES"::SY) then return 8
       0
 
     rightPrec(t:TOKEN):NNI ==
-      if isKey?(t,"PLUS") then return 5
-      if isKey?(t,"TIMES") then return 9
+      if isKey?(t,"PLUS"::SY) then return 5
+      if isKey?(t,"TIMES"::SY) then return 9
       0
 
     subNode(tl:Tokeniser):% ==
-      res:Tree(TOKEN) := tree(["error"::Symbol,"invalid token"])
+      res:Tree(TOKEN) := tree(["error"::Symbol,["invalid token"]])
       n:TOKEN := next(tl)
 --      mathprint("subNode token:")$Lisp
 --      print(bracket([n::OutputForm]))
@@ -502,7 +503,7 @@ Parser : Exports == Implementation where
         return tree(n,[leftOperand])$Tree(TOKEN)
       -- bracketed term does not need to be a node, we can
       -- just save its contents as a branch
-      if isKey?(n,"(") then
+      if isKey?(n,"("::SY) then
         m:TOKEN := consumeNonSpace!(tl)
 --        mathprint("subNode m=")$Lisp
 --        print(bracket([m::OutputForm]))
@@ -513,8 +514,8 @@ Parser : Exports == Implementation where
         m2:TOKEN := consumeNonSpace!(tl)
 --        mathprint("subNode m2=")$Lisp
 --        print(bracket([m2::OutputForm]))
-        if not isKey?(m2,")") then
-          leftOperand:Tree(TOKEN) := tree(["error"::Symbol,"mismatch brackets"])
+        if not isKey?(m2,")"::SY) then
+          leftOperand:Tree(TOKEN) := tree(["error"::Symbol,["mismatch brackets"]])
           res:= tree(n,[leftOperand])$Tree(TOKEN)
         -- consume closing bracket
         m2:TOKEN := consumeNonSpace!(tl)
@@ -532,14 +533,21 @@ Parser : Exports == Implementation where
     spadParse1(tl:Tokeniser,p:NNI):% ==
       res:Tree(TOKEN) := subNode(tl) pretend Tree(TOKEN)
       n:TOKEN := next(tl)
---      mathprint("spadParse1 start:")$Lisp
---      print(bracket([n::OutputForm,leftPrec(n)::OutputForm,p::OutputForm,_
---        binary?(n)::OutputForm]))
+      --print(hconcat([outputForm("spadParse1 start: n="),n::OutputForm,_
+      --              outputForm(" res="),res::OutputForm,_
+      --              outputForm(" leftPrec="),leftPrec(n)::OutputForm,_
+      --              outputForm(" p="),p::OutputForm,_
+      --              outputForm(" binary"),binary?(n)::OutputForm])$OutputForm)
       -- eat any binary ops unless precidence is less
       -- at lowest level this is always called with p=0
       -- so leftPrec(n) >= p will always be true at lowest
       -- level so no binary is ever left dangling
       while binary?(n) and leftPrec(n) >= p repeat
+        --print(hconcat([outputForm("spadParse1 startloop: n="),n::OutputForm,_
+        --            outputForm(" res="),res::OutputForm,_
+        --            outputForm(" leftPrec="),leftPrec(n)::OutputForm,_
+        --            outputForm(" p="),p::OutputForm,_
+        --            outputForm(" binary"),binary?(n)::OutputForm])$OutputForm)
         consumeNonSpace!(tl)
         ql:NNI := leftPrec(n)
         qr:NNI := rightPrec(n)
@@ -552,9 +560,9 @@ Parser : Exports == Implementation where
           return tree(n,[copy(res),rightOperand])$Tree(TOKEN)
         res := tree(n,[copy(res),rightOperand])$Tree(TOKEN)
         n:= next(tl)
---      mathprint("spadParse1 end:")$Lisp
---      print(bracket([n::OutputForm,leftPrec(n)::OutputForm,p::OutputForm,_
---        binary?(n)::OutputForm]))
+      --mathprint("spadParse1 end:")$Lisp
+      --print(bracket([n::OutputForm,leftPrec(n)::OutputForm,p::OutputForm,_
+      --  binary?(n)::OutputForm]))
       res
 
     -- constructor to construct tree from token list
@@ -594,7 +602,7 @@ TypeMatcher : Exports == Implementation where
     ++negcomment: Symbol
     ++error: Symbol
     ++spaces: Symbol
-  TOKEN ==> Record(tt:TOKENTYPE,tokVal:String)
+  TOKEN ==> Record(tt:TOKENTYPE,tokVal:Union(strng:String,symbl:Symbol))
   TYPEDVALUE ==> Record(tt:TOKENTYPE,tokVal:String)
 
   Exports == with
@@ -690,7 +698,7 @@ Interpret : Exports == Implementation where
     ++negcomment: Symbol
     ++error: Symbol
     ++spaces: Symbol
-  TOKEN ==> Record(tt:TOKENTYPE,tokVal:String)
+  TOKEN ==> Record(tt:TOKENTYPE,tokVal:Union(strng:String,symbl:Symbol))
   TYPEDVALUE ==> Record(tt:TOKENTYPE,tokVal:String)
 
   Exports == with
