@@ -54,6 +54,8 @@ Tokeniser : Exports == Implementation where
       ++ output
   Implementation ==> add
 
+    import from Interpret
+
     Rep := Record (TokLst:List TOKEN,Ptr:NNI)
       ++ list of tokens and pointer to this list.
 
@@ -323,6 +325,8 @@ Parser : Exports == Implementation where
       ++ tree can already be coerced to outputForm so this is not needed
   Implementation ==> add
 
+    import from Interpret
+
     Rep := Tree TOKEN
       ++ tree structure.
 
@@ -436,7 +440,7 @@ Parser : Exports == Implementation where
         return tree(n,[leftOperand])$Tree(TOKEN)
       -- bracketed term does not need to be a node, we can
       -- just save its contents as a branch
-      if isKey?(n,"("::SY) then
+      if isKey?(n,"OParen"::SY) then
         m:TOKEN := consumeNonSpace!(tl)
 --        mathprint("subNode m=")$Lisp
 --        print(bracket([m::OutputForm]))
@@ -447,7 +451,7 @@ Parser : Exports == Implementation where
         m2:TOKEN := consumeNonSpace!(tl)
 --        mathprint("subNode m2=")$Lisp
 --        print(bracket([m2::OutputForm]))
-        if not isKey?(m2,")"::SY) then
+        if not isKey?(m2,"CParen"::SY) then
           leftOperand:Tree(TOKEN) := tree(["error"::Symbol,["mismatch brackets"]])
           res:= tree(n,[leftOperand])$Tree(TOKEN)
         -- consume closing bracket
@@ -643,58 +647,141 @@ Interpret : Exports == Implementation where
     spadInterpret:() -> %
       ++ constructor to setup parameters and run interpreter
       ++ inside existing interpreter
-    getKeys:(%) -> KEYS
+    getKeys:(par:%) -> KEYS
       ++ get table of keywords containing operators and their
       ++ precidences
+    coerce:(n: %) -> OutputForm
+      ++ say bye bye
 
   Implementation ==> add
   
-    import Tokeniser
-    import Parser
-    import TypeMatcher
+    import from Tokeniser
+    import from Parser
+    import from TypeMatcher
+    --The function retractIfCan with signature (Union (Integer) failed)$ is 
+    --  missing from domain String
+    --import from IntegerRetractions(String)
 
     Rep := Record(_
       op: KEYS,_
-      Coerce: Symbol,_
-      compErrorMessageStack: Symbol,_
-      freeVars: Symbol,_
-      mapList: Symbol,_
-      compilingMap: Symbol,_
-      compilingLoop: Symbol,_
-      interpOnly: Symbol,_
-      whereCacheList: Symbol,_
-      timeGlobalName: Symbol,_
-      StreamFrame: Symbol,_
-      declaredMode: Symbol,_
-      localVars: Symbol,_
-      analyzingMapList: Symbol,_
-      lastLineInSEQ: Symbol,_
-      instantCoerceCount: Symbol,_
-      instantCanCoerceCount: Symbol,_
-      instantMmCondCount: Symbol,_
-      defaultFortVar:Symbol,_
-      fortVar: Symbol,_
-      defaultFortVar: Symbol,_
-      minivector: Symbol,_
-      minivectorCode: Symbol,_
-      minivectorNames: Symbol,_
-      domPvar: Symbol,_
-      inRetract: Symbol_
+      Coerce:SY,_
+      compErrorMessageStack:SY,_
+      freeVars:SY,_
+      mapList:SY,_
+      compilingMap:SY,_
+      compilingLoop:SY,_
+      interpOnly:SY,_
+      whereCacheList:SY,_
+      timeGlobalName:SY,_
+      StreamFrame:SY,_
+      declaredMode:SY,_
+      localVars:SY,_
+      analyzingMapList:SY,_
+      lastLineInSEQ:SY,_
+      instantCoerceCount:SY,_
+      instantCanCoerceCount:SY,_
+      instantMmCondCount:SY,_
+      defaultFortVar:SY,_
+      fortVar:SY,_
+      defaultFortVar:SY,_
+      minivector:SY,_
+      minivectorCode:SY,_
+      minivectorNames:SY,_
+      domPvar:SY,_
+      inRetract:SY_
     )
       ++ parameters (was global parameters)
       ++ I have just set everthing to Symbol for now but will
       ++ set them to the correct high level types when I get
       ++ to implementing code that needs them.
 
+    integerIfCan(s:String):Union(Integer,"failed") ==
+      res:Integer := 0
+      inp:List(Character):= parts(s)
+      for c in inp repeat
+        if not digit?(c) then return "failed"
+        if c=char("0") then res := res*10
+        if c=char("1") then res := res*10 + 1
+        if c=char("2") then res := res*10 + 2
+        if c=char("3") then res := res*10 + 3
+        if c=char("4") then res := res*10 + 4
+        if c=char("5") then res := res*10 + 5
+        if c=char("6") then res := res*10 + 6
+        if c=char("7") then res := res*10 + 7
+        if c=char("8") then res := res*10 + 8
+        if c=char("9") then res := res*10 + 9
+      --print(hconcat([outputForm("integerIfCan "),outputForm(res)])$OutputForm)
+      res
+
     -- if a line starts with ) this indicates a system command
     -- so this will be called
     -- intended to replace ncloopCommand in
     -- int-top.boot
+    -- returns true unless we want interpreter loop to end, in which
+    -- case we return false.
     processSystemCommand(s:String,param:%,lineNum:NNI):Boolean ==
+      words:List(String) := split(s,space())
+      empty?(words) => false
+      word1:String := first(words)
+      empty?(word1) => false
+      word1 := lowerCase(word1)
+      if substring?("q",word1,2) then return false
+      if substring?("se",word1,2) then
+        if (#words)<2 then
+          ncloopCommand(s,lineNum)$Lisp
+          return true
+        word2:String := words.2
+        word2 := lowerCase(word2)
+        if substring?("p",word2,1) then
+          if (#words)<5 then
+            print(outputForm("processSystemCommand: op and 2 precidence values required")$OutputForm)
+            return true
+          op:String := words.3
+          leftPrec1 := integerIfCan(words.4)@Union(Integer,"failed")
+          rightPrec1:= integerIfCan(words.5)@Union(Integer,"failed")
+          if leftPrec1 = "failed" then return true
+          leftPrec:Integer := leftPrec1::Integer
+          if rightPrec1 = "failed" then return true
+          rightPrec:Integer := rightPrec1::Integer
+          print(hconcat([outputForm("processSystemCommand op="::SY),_
+            outputForm(op),_
+            outputForm(" left="::SY),outputForm(leftPrec),_
+            outputForm(" right="::SY),outputForm(rightPrec)])$OutputForm)
+          keys:KEYS := getKeys(param)
+          for key in keys for index in 1..#keys repeat
+            if op = key.keya then
+              key2:Record(keya:String,keyb:Symbol,keyc:NNI,keyd:NNI,keye:NNI,keyf:NNI)
+              key2 := [key.keya,key.keyb,leftPrec::NNI,rightPrec::NNI,key.keye,key.keyf]
+              setelt!(keys,index,key2)
+              return true
+          print(outputForm("processSystemCommand op not found"))
+          return true
+        ncloopCommand(s,lineNum)$Lisp
+        return true
+      if substring?("g",word1,2) then
+        if (#words)<2 then
+          ncloopCommand(s,lineNum)$Lisp
+          return true
+        word2:String := words.2
+        word2 := lowerCase(word2)
+        if substring?("p",word2,1) then
+          if (#words)<3 then
+            print(outputForm("processSystemCommand: op required")$OutputForm)
+            return true
+          op:String := words.3
+          keys:KEYS := getKeys(param)
+          for key in keys for index in 1..#keys repeat
+            if op = key.keya then
+              print(hconcat([outputForm("processSystemCommand op="::SY),_
+                outputForm(op),_
+                outputForm(" left="::SY),outputForm(key.keyc),_
+                outputForm(" right="::SY),outputForm(key.keyd)])$OutputForm)
+              return true
+          print(outputForm("processSystemCommand op not found"))
+          return true
+        ncloopCommand(s,lineNum)$Lisp
+        return true
       ncloopCommand(s,lineNum)$Lisp
-      --InterpExecuteSpadSystemCommand(s)$Lisp
-      --doSystemCommand(s)$Lisp
-      --mathprint(concat(["process command",mathObject2String$Lisp c])$String)$Lisp
       true
 
     -- if a line is not a system command then this will be called
@@ -734,7 +821,6 @@ Interpret : Exports == Implementation where
     processString(s:String,param:%,lineNum:NNI):Boolean ==
       if s=empty()$String then return true
       if s="" then  return true
-      if s="q" then return false
       if position(")",s,1) = 1 then
         return processSystemCommand(s,param,lineNum)
       processMath(s,param,lineNum)
@@ -748,13 +834,13 @@ Interpret : Exports == Implementation where
     spadInterpret():% ==
       -- precidences from nud table
       -- from s-parser.boot
-      keys:KEYS := [
-           ["add","add"::SY,400,120,900,120], _
-           ["and","and"::SY,250,251,0,0], _
-           ["break","break"::SY,0,0,0,0], _
-           ["by","by"::SY,0,0,0,0], _
-           ["case","case"::SY,400,400,0,0], _
-           ["catch","catch"::SY,0,0,0,114], _
+      keys:KEYS := [_
+           ["add","add"::SY,400,120,900,120],_
+           ["and","and"::SY,250,251,0,0],_
+           ["break","break"::SY,0,0,0,0],_
+           ["by","by"::SY,0,0,0,0],_
+           ["case","case"::SY,400,400,0,0],_
+           ["catch","catch"::SY,0,0,0,114],_
            ["default","DEFAULT"::SY,0,0,0,0],_
            ["define","DEFN"::SY,0,0,0,0],_
            ["do","DO"::SY,0,0,0,0],_
@@ -834,8 +920,8 @@ Interpret : Exports == Implementation where
            ["->","ARROW"::SY,1002,1001,1001,1002],_
            ["<-","LARROW"::SY,1001,1002,0,0],_
            ["+->","GIVES"::SY,995,112,0,0],_
-           ["(","("::SY,0,0,0,0],_
-           [")",")"::SY,0,0,0,0],_
+           ["(","OParen"::SY,0,0,0,0],_
+           [")","CParen"::SY,0,0,0,0],_
            ["(|","(|"::SY,0,0,0,0],_
            ["|)","|)"::SY,0,0,0,0],_
            ["[","["::SY,0,0,0,0],_
@@ -894,4 +980,9 @@ Interpret : Exports == Implementation where
         keepGoing := processString(s,param,lineNum)
         lineNum := lineNum + 1
       param
+
+    -- say bye bye
+    coerce(n: %):OutputForm ==
+      outputForm("interpreter stopped"::SY)
+
 @
