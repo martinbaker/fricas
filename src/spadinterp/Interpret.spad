@@ -50,6 +50,8 @@ Tokeniser : Exports == Implementation where
       ++ consume next token stepping over spaces
     more?:(n: %) -> Boolean
       ++ true if has more
+    hasError?:(toks:%) -> Boolean
+      ++ true if there is an error anywhere in the list
     coerce: (n: %) -> OutputForm
       ++ output
   Implementation ==> add
@@ -62,6 +64,15 @@ Tokeniser : Exports == Implementation where
     -- gets complete list of tokens
     getAll(n: %):List(TOKEN) ==
       (n.TokLst) pretend List(TOKEN)
+
+    -- true if there is an error anywhere in the list
+    hasError?(toks:%):Boolean ==
+      -- tl = current list of tokens
+      tl := toks.TokLst
+      for t in tl repeat
+        if t.tt = "error"::Symbol then return true
+      false
+        
 
     -- gets but not consume next token
     next(n: %):TOKEN ==
@@ -81,7 +92,7 @@ Tokeniser : Exports == Implementation where
       n.Ptr := p+1
       ret
 
-    -- consume next token stepping over spaces
+    -- consume next token (stepping over spaces)
     consumeNonSpace!(n: %):TOKEN ==
       p := n.Ptr
       tl := n.TokLst
@@ -306,7 +317,15 @@ Parser : Exports == Implementation where
     ++negcomment: Symbol
     ++error: Symbol
     ++spaces: Symbol
+  NODETYPE ==> Symbol
+    ++ valid node types are:
+    ++fn: Symbol - function, including unary and binary operations
+    ++             subtree may contain zero or n parameters
+    ++var: Symbol - variable name represented by a string
+    ++lit: Symbol - literal values, such as a number, held in
+    ++              a string
   TOKEN ==> Record(tt:TOKENTYPE,tokVal:Union(strng:String,symbl:Symbol))
+  NODE ==> Record(nt:NODETYPE,nodeVal:Union(strng:String,symbl:Symbol))
   KEYS ==> List Record(keya:String,keyb:Symbol,keyc:NNI,keyd:NNI,keye:NNI,keyf:NNI)
     ++ perhaps this should be hash table?
     ++ can be optimised later if needed
@@ -327,24 +346,24 @@ Parser : Exports == Implementation where
 
     import from Interpret
 
-    Rep := Tree TOKEN
+    Rep := Tree NODE
       ++ tree structure.
 
-    isError?(t:TOKEN):Boolean ==
-       t.tt = "error"::SY
+    isError?(t:NODE):Boolean ==
+       t.nt = "error"::SY
 
     -- true if there is an error anywhere in the tree
     hasError?(tr:%,guard:NNI):Boolean ==
-      tr1:Tree(TOKEN) := tr pretend Tree(TOKEN)
+      tr1:Tree(NODE) := tr pretend Tree(NODE)
 --      mathprint("hasError? called:")$Lisp
 --      print(tr1::OutputForm)
       if guard>20 then return true
-      if cyclic?(tr1)$Tree(TOKEN) then return true
-      if empty?(tr1)$Tree(TOKEN) then return false
-      if leaf?(tr1)$Tree(TOKEN) then
-        v:TOKEN := value(tr1)$Tree(TOKEN)
+      if cyclic?(tr1)$Tree(NODE) then return true
+      if empty?(tr1)$Tree(NODE) then return false
+      if leaf?(tr1)$Tree(NODE) then
+        v:NODE := value(tr1)$Tree(NODE)
         return isError?(v)
-      nds:List(Tree(TOKEN)) := children(tr1)$Tree(TOKEN)
+      nds:List(Tree(NODE)) := children(tr1)$Tree(NODE)
       if #nds < 1 then return false
 --      mathprint("hasError? nds:=")$Lisp
 --      print(nds::OutputForm)
@@ -428,16 +447,73 @@ Parser : Exports == Implementation where
             return key.keyd
       0
 
+    -- constructor for a function node
+    parseTreeFunction(t:TOKEN,params:List(%)):% ==
+      val:Union(strng:String,symbl:Symbol) := t.tokVal
+      pars:List(Tree(NODE)) := params pretend List(Tree(NODE))
+      n:NODE := ["fn"::SY,val]
+      tree(n,pars)$Tree(NODE)
+
+    -- constructor for a variable node
+    parseTreeVar(t:TOKEN):% ==
+      val:Union(strng:String,symbl:Symbol) := t.tokVal
+      n:NODE := ["var"::SY,val]
+      tree(n)$Tree(NODE)
+
+    -- constructor for a literal node
+    parseTreeLiteral(t:TOKEN):% ==
+      val:Union(strng:String,symbl:Symbol) := t.tokVal
+      n:NODE := ["lit"::SY,val]
+      tree(n)$Tree(NODE)
+
+    -- parse a function starting with an ID followed by bracketed
+    -- parameters 
+    -- tl - tokeniser pointing to parameters
+    -- n - ID representing function name
+    parseFunction(tl:Tokeniser,n:TOKEN,param:Interpret):% ==
+      --print(hconcat([outputForm("parseFunction start: n="),n::OutputForm_
+      --              ])$OutputForm)
+      res:Tree(NODE) := tree(["error"::Symbol,["invalid function parameters"]])
+      pars:List(%) := empty()$List(%)
+      m:TOKEN := next(tl)
+      if not isKey?(m,"OParen"::SY) then return res
+      m := consumeNonSpace!(tl)
+      m:=next(tl)
+      if isKey?(m,"CParen"::SY) then
+        -- function with no parameters
+        m := consumeNonSpace!(tl)
+        return parseTreeFunction(n,pars)
+      -- read parameters, if there are multiple parameters
+      -- they will be put in a comma node
+      par:% := spadParse1(tl,0,param)
+--      if par.tokVal = "COMMA"::SY then
+--        change comma node to function node
+      pars := concat(pars,par)$List(%)
+      -- check for follow on parameters
+      --while isKey?(m,"COMMA"::SY) repeat
+      --  m := consumeNonSpace!(tl)
+      --  m:=next(tl)
+      --  par:% := spadParse1(tl,0,param)        
+      --  pars := concat(pars,par)$List(%)
+      m := consumeNonSpace!(tl)
+      parseTreeFunction(n,pars)
+
+    -- read a single term which may be either:
+    -- A literal value
+    -- A unary operation
+    -- A bracketed value
+    -- A function call
     subNode(tl:Tokeniser,param:Interpret):% ==
-      res:Tree(TOKEN) := tree(["error"::Symbol,["invalid token"]])
+      res:Tree(NODE) := tree(["error"::Symbol,["invalid token"]])
       n:TOKEN := next(tl)
 --      mathprint("subNode token:")$Lisp
 --      print(bracket([n::OutputForm]))
       if unary?(n,getKeys(param)) then
         m:TOKEN := consumeNonSpace!(tl)
         q:NNI := leftPrec(n,getKeys(param))
-        leftOperand:Tree(TOKEN) := spadParse1(tl,q,param) pretend Tree(TOKEN)
-        return tree(n,[leftOperand])$Tree(TOKEN)
+        leftOperand:Tree(NODE) := spadParse1(tl,q,param) pretend Tree(NODE)
+        return parseTreeFunction(n,[leftOperand])
+        --return tree(n,[leftOperand])$Tree(NODE)
       -- bracketed term does not need to be a node, we can
       -- just save its contents as a branch
       if isKey?(n,"OParen"::SY) then
@@ -446,29 +522,39 @@ Parser : Exports == Implementation where
 --        print(bracket([m::OutputForm]))
 --        leftOperand:Tree(TOKEN) := spadParse1(tl,0,param) pretend Tree(TOKEN)
 --        res:= tree(n,[leftOperand])$Tree(TOKEN)
-        res:= spadParse1(tl,0,param) pretend Tree(TOKEN)
+        res:= spadParse1(tl,0,param) pretend Tree(NODE)
         -- consume opening bracket
         m2:TOKEN := consumeNonSpace!(tl)
 --        mathprint("subNode m2=")$Lisp
 --        print(bracket([m2::OutputForm]))
         if not isKey?(m2,"CParen"::SY) then
-          leftOperand:Tree(TOKEN) := tree(["error"::Symbol,["mismatch brackets"]])
-          res:= tree(n,[leftOperand])$Tree(TOKEN)
+          leftOperand:Tree(NODE) := tree(["error"::Symbol,["mismatch brackets"]])
+          res:= parseTreeFunction(n,[leftOperand]) pretend Tree(NODE)
         -- consume closing bracket
         m2:TOKEN := consumeNonSpace!(tl)
         return res
+      -- check for variable name or function call
+      if n.tt = "id"::Symbol then
+        m:TOKEN := consumeNonSpace!(tl)
+        m:=next(tl)
+        -- check for function call
+        if isKey?(m,"OParen"::SY) then
+          return parseFunction(tl,n,param)
+        -- otherwise return ID
+        return parseTreeVar(n)
+      -- check for other type of leaf node such as some type
+      -- of literal value.
       if isLeaf?(n) then
         m:TOKEN := consumeNonSpace!(tl)
-        --q:NNI := leftPrec(n,getKeys(param))
-        return tree(n)$Tree(TOKEN)
+        return parseTreeLiteral(n)
       consumeNonSpace!(tl)
-      res    
+      res
 
     -- construct tree from token list
     -- tl is token stream
     -- p is current precidence
     spadParse1(tl:Tokeniser,p:NNI,param:Interpret):% ==
-      res:Tree(TOKEN) := subNode(tl,param) pretend Tree(TOKEN)
+      res:Tree(NODE) := subNode(tl,param) pretend Tree(NODE)
       n:TOKEN := next(tl)
       --print(hconcat([outputForm("spadParse1 start: n="),n::OutputForm,_
       --              outputForm(" res="),res::OutputForm,_
@@ -488,14 +574,15 @@ Parser : Exports == Implementation where
         consumeNonSpace!(tl)
         ql:NNI := leftPrec(n,getKeys(param))
         qr:NNI := rightPrec(n,getKeys(param))
-        rightOperand:Tree(TOKEN) := spadParse1(tl,ql,param) pretend Tree(TOKEN)
+        rightOperand:Tree(NODE) := spadParse1(tl,ql,param) pretend Tree(NODE)
         if hasError?(rightOperand,0) then
 --          mathprint("spadParse1 error:")$Lisp
 --          n:= next(tl)
 --          print(bracket([n::OutputForm,leftPrec(n,getKeys(param))::OutputForm,p::OutputForm,_
 --            rightOperand::OutputForm]))
-          return tree(n,[copy(res),rightOperand])$Tree(TOKEN)
-        res := tree(n,[copy(res),rightOperand])$Tree(TOKEN)
+--          return tree(n,[copy(res),rightOperand])$Tree(NODE)
+          return parseTreeFunction(n,[copy(res),rightOperand])
+        res := parseTreeFunction(n,[copy(res),rightOperand]) pretend Tree(NODE)
         n:= next(tl)
       --mathprint("spadParse1 end:")$Lisp
       --print(bracket([n::OutputForm,leftPrec(n,getKeys(param))::OutputForm,p::OutputForm,_
@@ -527,20 +614,15 @@ Parser : Exports == Implementation where
 
 TypeMatcher : Exports == Implementation where
   NNI==> NonNegativeInteger
-  TOKENTYPE ==> Symbol
-    ++ valid token types are:
-    ++id: Symbol
-    ++key: Symbol
-    ++integer: Symbol
-    ++rinteger: Symbol
-    ++float: Symbol
-    ++string: Symbol
-    ++comment: Symbol
-    ++negcomment: Symbol
-    ++error: Symbol
-    ++spaces: Symbol
-  TOKEN ==> Record(tt:TOKENTYPE,tokVal:Union(strng:String,symbl:Symbol))
-  TYPEDVALUE ==> Record(tt:TOKENTYPE,tokVal:String)
+  NODETYPE ==> Symbol
+    ++ valid node types are:
+    ++fn: Symbol - function, including unary and binary operations
+    ++             subtree may contain zero or n parameters
+    ++var: Symbol - variable name represented by a string
+    ++lit: Symbol - literal values, such as a number, held in
+    ++              a string
+  NODE ==> Record(nt:NODETYPE,nodeVal:Union(strng:String,symbl:Symbol))
+  TYPEDVALUE ==> Record(tt:NODETYPE,tokVal:String)
 
   Exports == with
 
@@ -798,9 +880,11 @@ Interpret : Exports == Implementation where
 --      d := parseFromString(s)$Lisp
 --      mathprint("parse:")$Lisp
 --      print(d::OutputForm)
-      mathprint("tokeniser:")$Lisp
       tokList := spadTokenise(s,param pretend Interpret)
-      print(tokList::OutputForm)
+      if hasError?(tokList) then
+        mathprint("tokeniser:")$Lisp
+        print(tokList::OutputForm)
+        return true
       mathprint("parser:")$Lisp
       parseTree := spadParse(tokList,param pretend Interpret)
       if hasError?(parseTree,0) then
