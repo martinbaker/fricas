@@ -1,3 +1,96 @@
+)abbrev domain ATOMIC AtomicValue
+++ Author: Martin Baker
+++ Date Created: April 2014
+++ Date Last Updated: April 2014
+++ Description:
+++   This holds an atomic value, that is a value of one of 4 atomic
+++   types: String,Symbol,Integer or DoubleFloat
+++
+++   The consept is similar to SExpression but I have not used that
+++   to avoid and relience on building on top of Lisp.
+++
+++   I have put information about running this code here:
+++ http://www.euclideanspace.com/prog/scratchpad/mycode/system/interpreter/
+
+AtomicValue : Exports == Implementation where
+
+  Exports == with
+
+    atomicValue:(s:String) -> %
+      ++ constructor for string
+    atomicValue:(s:Symbol) -> %
+      ++ constructor for symbol
+    atomicValue:(s:Integer) -> %
+      ++ constructor for Integer
+    atomicValue:(s:DoubleFloat) -> %
+      ++ constructor for float
+    isString?:(n: %) -> Boolean
+      ++ true if string
+    isSymbol?:(n: %) -> Boolean
+      ++ true if symbol
+    isInteger?:(n: %) -> Boolean
+      ++ true if integer
+    isFloat?:(n: %) -> Boolean
+      ++ true if float
+    getString:(n: %) -> String
+      ++ return string
+    getSymbol:(n: %) -> Symbol
+      ++ return symbol
+    getInteger:(n: %) -> Integer
+      ++ return integer
+    getFloat:(n: %) -> DoubleFloat
+      ++ return float
+    coerce:(n: %) -> OutputForm
+      ++ output
+
+  Implementation ==> add
+
+    Rep := Union(stringAtom:String,_
+                 symbolAtom:Symbol,_
+                 integerAtom:Integer,_
+                 floatAtom:DoubleFloat)
+      ++ holds one of 4 atomic types.
+
+    -- constructors
+    atomicValue(s:String):% == [s]
+    atomicValue(s:Symbol):% == [s]
+    atomicValue(s:Integer):% == [s]
+    atomicValue(s:DoubleFloat):% == [s]
+
+    -- true if given type
+    isString?(n: %):Boolean == n case stringAtom
+    isSymbol?(n: %):Boolean == n case symbolAtom
+    isInteger?(n: %):Boolean == n case integerAtom
+    isFloat?(n: %):Boolean == n case floatAtom
+
+    -- return string
+    getString(n: %):String ==
+      not (n case stringAtom) => "error"
+      n.stringAtom
+
+    -- return symbol 
+    getSymbol(n: %):Symbol ==
+      not (n case symbolAtom) => "error"::Symbol
+      n.symbolAtom
+
+    -- return integer
+    getInteger(n: %):Integer ==
+      not (n case integerAtom) => 0
+      n.integerAtom
+
+    -- return float
+    getFloat(n: %):DoubleFloat ==
+      not (n case floatAtom) => 0$DoubleFloat
+      n.floatAtom
+
+    coerce(n: %):OutputForm ==
+      n case stringAtom => (n.stringAtom)::OutputForm
+      n case symbolAtom => (n.symbolAtom)::OutputForm
+      n case integerAtom => (n.integerAtom)::OutputForm
+      n case floatAtom => (n.floatAtom)::OutputForm
+      "error"::OutputForm
+@
+
 )abbrev domain TOKENISE Tokeniser
 ++ Author: Martin Baker
 ++ Date Created: April 2014
@@ -31,7 +124,7 @@ Tokeniser : Exports == Implementation where
     ++ negcomment: Symbol
     ++ error: Symbol
     ++ spaces: Symbol
-  TOKEN ==> Record(tt:TOKENTYPE,tokVal:Union(strng:String,symbl:Symbol))
+  TOKEN ==> Record(tt:TOKENTYPE,tokVal:AtomicValue)
     ++ holds a single token from scanner
   KEYS ==> List Record(keya:String,keyb:Symbol,keyc:NNI,keyd:NNI,keye:NNI,keyf:NNI)
     ++ Table of keywords and their precidences. Contains:
@@ -65,6 +158,7 @@ Tokeniser : Exports == Implementation where
   Implementation ==> add
 
     import from Interpret
+    import from AtomicValue
 
     Rep := Record (TokLst:List TOKEN,Ptr:NNI)
       ++ list of tokens and pointer to this list.
@@ -80,7 +174,6 @@ Tokeniser : Exports == Implementation where
       for t in tl repeat
         if t.tt = "error"::Symbol then return true
       false
-        
 
     -- gets but not consume next token
     next(n: %):TOKEN ==
@@ -88,14 +181,14 @@ Tokeniser : Exports == Implementation where
       p := n.Ptr
       -- tl = current list of tokens
       tl := n.TokLst
-      if p > (#tl) then return ["error"::Symbol,["more expected"]]
+      if p > (#tl) then return ["error"::Symbol,atomicValue("more expected")]
       ret:TOKEN := tl.p
 
     -- consume next token
     consume!(n: %):TOKEN ==
       p := n.Ptr
       tl := n.TokLst
-      if p > (#tl) then return ["error"::Symbol,["more expected"]]
+      if p > (#tl) then return ["error"::Symbol,atomicValue("more expected")]
       ret:TOKEN := tl.p
       n.Ptr := p+1
       ret
@@ -104,11 +197,11 @@ Tokeniser : Exports == Implementation where
     consumeNonSpace!(n: %):TOKEN ==
       p := n.Ptr
       tl := n.TokLst
-      if p > (#tl) then return ["error"::Symbol,["more expected"]]
+      if p > (#tl) then return ["error"::Symbol,atomicValue("more expected")]
       ret:TOKEN := tl.p
       if ret.tt = "error"::Symbol then
         p := p+1
-        if p > (#tl) then return ["error"::Symbol,["more expected"]]
+        if p > (#tl) then return ["error"::Symbol,atomicValue("more expected")]
         ret:TOKEN := tl.p
       n.Ptr := p+1
       ret
@@ -125,22 +218,22 @@ Tokeniser : Exports == Implementation where
       subChars:List(Character) := [cl.x for x in (startIndex..(endIndex))]
       s:String := construct(subChars)
       for key in keys repeat
-        if s = key.keya then return ["key"::Symbol,[key.keyb]]
-      [t,[s]]
+        if s = key.keya then return ["key"::Symbol,atomicValue(key.keyb)]
+      [t,atomicValue(s)]
 
     -- used by spadTokenise to make a integer token
     makeIntToken(cl:List Character,startIndex:Integer,endIndex:Integer,keys:KEYS):TOKEN ==
       t:TOKENTYPE := "integer"::Symbol
       subChars:List(Character) := [cl.x for x in (startIndex..(endIndex))]
       s:String := construct(subChars)
-      [t,[s]]
+      [t,atomicValue(s)]
 
     -- used by spadTokenise to make a float token
     makeFloatToken(cl:List Character,startIndex:Integer,endIndex:Integer,keys:KEYS):TOKEN ==
       t:TOKENTYPE := "id"::Symbol
       subChars:List(Character) := [cl.x for x in (startIndex..(endIndex))]
       s:String := construct(subChars)
-      [t,[s]]
+      [t,atomicValue(s)]
 
     -- used by makeOperatorTokens
     lookupOperatorToken(cl:List Character,startIndex:Integer,endIndex:Integer,keys:KEYS):TOKEN ==
@@ -149,8 +242,8 @@ Tokeniser : Exports == Implementation where
       s:String := construct(subChars)
       --print(hconcat([outputForm("lookupOperatorToken s="),outputForm(s)])$OutputForm)
       for key in keys repeat
-        if s = key.keya then return ["key"::Symbol,[key.keyb]]
-      [t,[s]]
+        if s = key.keya then return ["key"::Symbol,atomicValue(key.keyb)]
+      [t,atomicValue(s)]
 
     -- used by spadTokenise to make operator tokens
     -- first try to match whole input to keywords, if that does not
@@ -168,27 +261,27 @@ Tokeniser : Exports == Implementation where
         return [candidateToken]
       -- no match found for whole input so try splitting
       -- first make sure it is long enough to split
-      if (endIndex - startIndex) < 1 then return [["error"::Symbol,["no match"]]]
+      if (endIndex - startIndex) < 1 then return [["error"::Symbol,atomicValue("no match")]]
       for midIndex in startIndex..endIndex repeat
         tokenA:TOKEN := lookupOperatorToken(cl,startIndex,midIndex,keys)
         tokenB:TOKEN := lookupOperatorToken(cl,midIndex+1,endIndex,keys)
         if (tokenA.tt ~= "error"::Symbol) and (tokenB.tt ~= "error"::Symbol) then
           return [tokenA,tokenB]
-      [["error"::Symbol,["no match"]]]
+      [["error"::Symbol,atomicValue("no match")]]
 
     -- used by spadTokenise to make a space token
     makeSpaceToken(cl:List Character,startIndex:Integer,endIndex:Integer,keys:KEYS):TOKEN ==
       t:TOKENTYPE := "space"::Symbol
       subChars:List(Character) := [cl.x for x in (startIndex..(endIndex))]
       s:String := construct(subChars)
-      [t,[s]]
+      [t,atomicValue(s)]
 
     -- used by spadTokenise to make a string token
     makeStringToken(cl:List Character,startIndex:Integer,endIndex:Integer,keys:KEYS):TOKEN ==
       t:TOKENTYPE := "string"::Symbol
       subChars:List(Character) := [cl.x for x in (startIndex..(endIndex))]
       s:String := construct(subChars)
-      [t,[s]]
+      [t,atomicValue(s)]
 
     lookupStateTable(current:SY,inp:SY):SY ==
       -- 'stateTable' gives next state for possible inputs.
@@ -325,7 +418,7 @@ Parser : Exports == Implementation where
     ++ negcomment: Symbol
     ++ error: Symbol
     ++ spaces: Symbol
-  TOKEN ==> Record(tt:TOKENTYPE,tokVal:Union(strng:String,symbl:Symbol))
+  TOKEN ==> Record(tt:TOKENTYPE,tokVal:AtomicValue)
     ++ holds a single token from scanner
   NODETYPE ==> Symbol
     ++ valid node types are:
@@ -334,7 +427,7 @@ Parser : Exports == Implementation where
     ++var: Symbol - variable name represented by a string
     ++lit: Symbol - literal values, such as a number, held in
     ++              a string
-  NODE ==> Record(nt:NODETYPE,spadType:MType,nodeVal:Union(strng:String,symbl:Symbol))
+  NODE ==> Record(nt:NODETYPE,spadType:MType,nodeVal:AtomicValue)
     ++ holds a single node in a parse tree.
     ++ This has both type and value information.
     ++ Initially nt holds an approximate type but later this needs
@@ -370,6 +463,7 @@ Parser : Exports == Implementation where
 
     import from Interpret
     import from MType
+    import from AtomicValue
 
     Rep := Tree(NODE)
       ++ tree structure.
@@ -401,11 +495,11 @@ Parser : Exports == Implementation where
     -- check for given key, such as PLUS
     isKey?(t:TOKEN,s:SY):Boolean ==
       if t.tt ~= "key"::Symbol then return false
-      if (t.tokVal) case symbl then
+      if isSymbol?(t.tokVal) then
         --print(hconcat([outputForm("isKey?"),t::OutputForm,_
         --  outputForm(" s="),outputForm(s),_
-        --  outputForm(" tokVal="),outputForm((t.tokVal).symbl)])$OutputForm)
-        return ((t.tokVal).symbl)=s
+        --  outputForm(" tokVal="),outputForm(getSymbol(t.tokVal))])$OutputForm)
+        return getSymbol(t.tokVal)=s
       false
 
     -- returns true if given token represents a binary operation
@@ -413,8 +507,8 @@ Parser : Exports == Implementation where
     -- table being non-zero
     binary?(t:TOKEN,keys:KEYS):Boolean ==
       --print(hconcat([outputForm("binary?"),t::OutputForm])$OutputForm)
-      if (t.tokVal) case symbl then
-        sy:Symbol := (t.tokVal).symbl
+      if isSymbol?(t.tokVal) then
+        sy:Symbol := getSymbol(t.tokVal)
         for key in keys repeat
           if sy = key.keyb then
             if key.keyc > 0 then return true
@@ -427,8 +521,8 @@ Parser : Exports == Implementation where
     -- this is determined by the precidence values in the keyword
     -- table being non-zero
     unary?(t:TOKEN,keys:KEYS):Boolean ==
-      if (t.tokVal) case symbl then
-        sy:Symbol := (t.tokVal).symbl
+      if isSymbol?(t.tokVal) then
+        sy:Symbol := getSymbol(t.tokVal)
         for key in keys repeat
           if sy = key.keyb then
             if key.keye > 0 then return true
@@ -451,8 +545,8 @@ Parser : Exports == Implementation where
       false
 
     leftPrec(t:TOKEN,keys:KEYS):NNI ==
-      if (t.tokVal) case symbl then
-        sy:Symbol := (t.tokVal).symbl
+      if isSymbol?(t.tokVal) then
+        sy:Symbol := getSymbol(t.tokVal)
         for key in keys repeat
           if sy = key.keyb then
             --print(hconcat([outputForm("leftPrec: token="),t::OutputForm,_
@@ -462,8 +556,8 @@ Parser : Exports == Implementation where
       0
 
     rightPrec(t:TOKEN,keys:KEYS):NNI ==
-      if (t.tokVal) case symbl then
-        sy:Symbol := (t.tokVal).symbl
+      if isSymbol?(t.tokVal) then
+        sy:Symbol := getSymbol(t.tokVal)
         for key in keys repeat
           if sy = key.keyb then
             --print(hconcat([outputForm("rightPrec: token="),t::OutputForm,_
@@ -474,29 +568,22 @@ Parser : Exports == Implementation where
 
     -- constructor for a function node
     parseTreeFunction(t:TOKEN,params:List(%)):% ==
-      val:Union(strng:String,symbl:Symbol) := t.tokVal
+      val:AtomicValue := t.tokVal
       pars:List(Tree(NODE)) := params pretend List(Tree(NODE))
       n:NODE := ["fn"::SY,0$MType,val]
       tree(n,pars)$Tree(NODE)
 
     -- constructor for a variable node
     parseTreeVar(t:TOKEN):% ==
-      val:Union(strng:String,symbl:Symbol) := t.tokVal
+      val:AtomicValue := t.tokVal
       n:NODE := ["var"::SY,typeConstruct("Symbol"::Symbol),val]
       tree(n)$Tree(NODE)
 
     -- constructor for a literal node
     parseTreeLiteral(t:TOKEN):% ==
-      val:Union(strng:String,symbl:Symbol) := t.tokVal
+      val:AtomicValue := t.tokVal
       n:NODE := ["lit"::SY,typeConstruct("NonNegativeInteger"::Symbol),val]
       tree(n)$Tree(NODE)
-
-    -- change the ID of root node
---    changeID!(tr:%,oldID:SY,newID:SY):Void ==
---      node:NODE := value(tr pretend Tree(NODE))
---      if (node.nodeVal).symbl ~= oldID then return void()
---      node.nodeVal := [newID]
---      void()
 
     -- this holds type matching rules for unary functions
     unaryRules(outKey:Symbol,inType:MType):MType ==
@@ -528,8 +615,8 @@ Parser : Exports == Implementation where
         u:NODE := value(nds.1)$Tree(NODE)
         spadt:MType := u.spadType
         v:NODE := value(tr1)$Tree(NODE)
-        if (v.nodeVal) case symbl then
-          sy:Symbol := (v.nodeVal).symbl
+        if isSymbol?(v.nodeVal) then
+          sy:Symbol := getSymbol(v.nodeVal)
           res:MType := unaryRules(sy,spadt)
           newNode:NODE := [v.nt,res,v.nodeVal]
           setvalue!(untyped,newNode)
@@ -545,7 +632,7 @@ Parser : Exports == Implementation where
     parseFunction(tl:Tokeniser,n:TOKEN,param:Interpret):% ==
       --print(hconcat([outputForm("parseFunction start: n="),n::OutputForm_
       --              ])$OutputForm)
-      res:Tree(NODE) := tree(["error"::Symbol,0$MType,["invalid function parameters"]])
+      res:Tree(NODE) := tree(["error"::Symbol,0$MType,atomicValue("invalid function parameters")])
       pars:List(%) := empty()$List(%)
       m:TOKEN := next(tl)
       if not isKey?(m,"OParen"::SY) then return res
@@ -560,9 +647,9 @@ Parser : Exports == Implementation where
       par:% := spadParse1(tl,0,param)
       par2:Tree(NODE) := par pretend Tree(NODE)
       node:NODE := value(par2)
-      if (node.nodeVal) case symbl
+      if isSymbol?(node.nodeVal)
         then 
-          if (node.nodeVal).symbl = "COMMA"::SY
+          if getSymbol(node.nodeVal) = "COMMA"::SY
             then
               pars2:List(Tree(NODE)) := children(par2)$Tree(NODE)
               pars := pars2 pretend List(%)
@@ -577,7 +664,7 @@ Parser : Exports == Implementation where
     -- A bracketed value
     -- A function call
     subNode(tl:Tokeniser,param:Interpret):% ==
-      res:Tree(NODE) := tree(["error"::Symbol,0$MType,["invalid token"]])
+      res:Tree(NODE) := tree(["error"::Symbol,0$MType,atomicValue("invalid token")])
       n:TOKEN := next(tl)
 --      mathprint("subNode token:")$Lisp
 --      print(bracket([n::OutputForm]))
@@ -601,7 +688,7 @@ Parser : Exports == Implementation where
 --        mathprint("subNode m2=")$Lisp
 --        print(bracket([m2::OutputForm]))
         if not isKey?(m2,"CParen"::SY) then
-          leftOperand:Tree(NODE) := tree(["error"::Symbol,0$MType,["mismatch brackets"]])
+          leftOperand:Tree(NODE) := tree(["error"::Symbol,0$MType,atomicValue("mismatch brackets")])
           res:= parseTreeFunction(n,[leftOperand]) pretend Tree(NODE)
         -- consume closing bracket
         m2:TOKEN := consumeNonSpace!(tl)
@@ -718,7 +805,7 @@ Interpret : Exports == Implementation where
     ++ negcomment: Symbol
     ++ error: Symbol
     ++ spaces: Symbol
-  TOKEN ==> Record(tt:TOKENTYPE,tokVal:Union(strng:String,symbl:Symbol))
+  TOKEN ==> Record(tt:TOKENTYPE,tokVal:AtomicValue)
     ++ holds a single token from scanner
   NODETYPE ==> Symbol
     ++ valid node types are:
@@ -727,7 +814,7 @@ Interpret : Exports == Implementation where
     ++var: Symbol - variable name represented by a string
     ++lit: Symbol - literal values, such as a number, held in
     ++              a string
-  NODE ==> Record(nt:NODETYPE,spadType:MType,nodeVal:Union(strng:String,symbl:Symbol))
+  NODE ==> Record(nt:NODETYPE,spadType:MType,nodeVal:AtomicValue)
     ++ holds a single node in a parse tree.
     ++ This has both type and value information.
     ++ Initially nt holds an approximate type but later this needs
@@ -756,6 +843,7 @@ Interpret : Exports == Implementation where
 
   Implementation ==> add
   
+    import from AtomicValue
     import from Tokeniser
     import from Parser
     import from TypeMatcher
