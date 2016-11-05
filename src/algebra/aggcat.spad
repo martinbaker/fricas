@@ -951,7 +951,7 @@ TableAggregate(Key : Type, Entry : Type) : Category ==
    if Key has CoercibleTo(OutputForm) and Entry has CoercibleTo(OutputForm)
    then
        coerce(t : %) : OutputForm ==
-           prefix("table"::OutputForm,
+           prefix(message("table")$OutputForm,
                     [k::OutputForm = (t.k)::OutputForm for k in keys t])
 
    elt(t, k) ==
@@ -1202,15 +1202,15 @@ BinaryRecursiveAggregate(S : Type) : Category == RecursiveAggregate S with
 
        if S has CoercibleTo OutputForm then
            coerce(t : %) : OutputForm ==
-               empty? t =>  "[]"::OutputForm
-               v := value(t):: OutputForm
+               empty? t =>  message("[]")$OutputForm
+               v := value(t)::OutputForm
                empty? left t =>
                    empty? right t => v
                    r := coerce(right t)@OutputForm
-                   bracket ["."::OutputForm, v, r]
+                   bracket [message(".")$OutputForm, v, r]
                l := coerce(left t)@OutputForm
                r :=
-                   empty? right t => "."::OutputForm
+                   empty? right t => message(".")$OutputForm
                    coerce(right t)@OutputForm
                bracket [l, v, r]
 
@@ -1364,7 +1364,7 @@ UnaryRecursiveAggregate(S : Type) : Category == RecursiveAggregate S with
         ++ setfirst!(u, x) destructively changes the first element of u to x.
         ++ Error if u is empty.
       qsetfirst! : (%, S) -> S
-        ++ setfirst!(u, x) destructively changes the first element of u to x
+        ++ qsetfirst!(u, x) destructively changes the first element of u to x
         ++ without checking for errors.
       setelt! : (%, "first", S) -> S
         ++ setelt!(u, "first", x) (also written: \spad{u.first := x}) is
@@ -1373,7 +1373,7 @@ UnaryRecursiveAggregate(S : Type) : Category == RecursiveAggregate S with
         ++ setrest!(u, v) destructively changes the rest of u to v.
         ++ Error if u is empty.
       qsetrest! : (%, %) -> %
-        ++ setrest!(u, v) destructively changes the rest of u to v
+        ++ qsetrest!(u, v) destructively changes the rest of u to v
         ++ without checking for errors.
       setelt! : (%, "rest", %) -> %
         ++ setelt!(u, "rest", v) (also written: \spad{u.rest := v})
@@ -1600,10 +1600,10 @@ StreamAggregate(S : Type) : Category ==
        first x
 
    elt(x : %, i : UniversalSegment(Integer)) ==
-       l := lo(i) - minIndex x
+       l := low(i) - minIndex x
        l < 0 => error "index out of range"
        not hasHi i => copy(rest(x, l::NonNegativeInteger))
-       (h := hi(i) - minIndex x) < l => empty()
+       (h := high(i) - minIndex x) < l => empty()
        first(rest(x, l::NonNegativeInteger), (h - l + 1)::NonNegativeInteger)
 
    if % has shallowlyMutable then
@@ -1630,8 +1630,8 @@ StreamAggregate(S : Type) : Category ==
            setfirst!(x, s)
 
        setelt!(x : %, i : UniversalSegment(Integer), s : S) ==
-           (l := lo(i) - minIndex x) < 0 => error "index out of range"
-           h := if hasHi i then hi(i) - minIndex x else maxIndex x
+           (l := low(i) - minIndex x) < 0 => error "index out of range"
+           h := if hasHi i then high(i) - minIndex x else maxIndex x
            h < l => s
            y := rest(x, l::NonNegativeInteger)
            z := rest(y, (h - l + 1)::NonNegativeInteger)
@@ -1909,7 +1909,7 @@ OneDimensionalArrayAggregate(S : Type) : Category ==
         a
 
     setelt!(a : %, s : UniversalSegment(Integer), x : S) ==
-        l := lo s; h := if hasHi s then hi s else maxIndex a
+        l := low(s); h := if hasHi s then high(s) else maxIndex a
         l < minIndex a or h > maxIndex a => error "index out of range"
         for k in l..h repeat qsetelt!(a, k, x)
         x
@@ -1983,8 +1983,8 @@ OneDimensionalArrayAggregate(S : Type) : Category ==
         r
 
     elt(a : %, s : UniversalSegment(Integer)) ==
-        l := lo s
-        h := if hasHi s then hi s else maxIndex a
+        l := low(s)
+        h := if hasHi s then high(s) else maxIndex a
         l < minIndex a or h > maxIndex a => error "index out of range"
         r := stupidnew(max(0, h - l + 1)::NonNegativeInteger, a, a)
         for k in minIndex r.. for i in l..h repeat
@@ -2024,7 +2024,7 @@ OneDimensionalArrayAggregate(S : Type) : Category ==
         a
 
     delete(a : %, s : UniversalSegment(Integer)) ==
-        l := lo s; h := if hasHi s then hi s else maxIndex a
+        l := low(s); h := if hasHi s then high(s) else maxIndex a
         l < minIndex a or h > maxIndex a => error "index out of range"
         h < l => copy a
         r := stupidnew((#a - h + l - 1)::NonNegativeInteger, a, a)
@@ -2252,8 +2252,8 @@ ListAggregate(S : Type) : Category == Join(StreamAggregate S,
        x
 
    delete!(x : %, i : UniversalSegment(Integer)) ==
-       (l := lo i) < (m := minIndex x) => error "index out of range"
-       h := if hasHi i then hi i else maxIndex x
+       (l := low(i)) < (m := minIndex x) => error "index out of range"
+       h := if hasHi i then high(i) else maxIndex x
        h < l => x
        l = m => rest(x, (h + 1 - m)::NonNegativeInteger)
        t := rest(x, (l - 1 - m)::NonNegativeInteger)

@@ -9,8 +9,8 @@
 ++ Examples:
 ++ Reference: Knuth, The Art of Computer Programming, 2nd edition,
 ++            Vol. 2, p. 619, problem 12.
-++            Manuel Bronstein, Symbolic Integration 1: Transcendental Functions,
-++            2nd edition, p. 18, section 1.4
+++            Manuel Bronstein, Symbolic Integration 1: Transcendental
+++            Functions, 1st edition, p. 18, section 1.4
 ++ Description:
 ++   \spadtype{BezoutMatrix} contains functions for computing resultants and
 ++   discriminants using Bezout matrices, and functions related with
@@ -84,32 +84,37 @@ BezoutMatrix(R, UP, M, Row, Col) : Exports == Implementation where
           qsetelt!(sylmat, minR + n2 + i, minC + n2 - deg + i, coef)
       sylmat
 
-    import from MatrixManipulation(R, Row, Col, M)
-
+    -- The following subSylvesterMatrix functions are based on: Manuel
+    -- Bronstein, Symbolic Integration 1: Transcendental Functions,
+    -- 1st edition, p. 19, definition 1.4.2
     subSylvesterMatrix(sylmat, j) ==
         j = 0 => sylmat
         diagonal? sylmat =>
             error "one of the polynomials that form this SylvesterMatrix has degree 0"
         minR := minRowIndex sylmat; minC := minColIndex sylmat
         maxR := maxRowIndex sylmat; maxC := maxColIndex sylmat
+        len := ncols sylmat
         firstcol := column(sylmat, minC)
-        m := position((x:R):Boolean+->x~=0, delete(firstcol, minC))+1 - minC
-        n := maxC - minC + 1 - m
+        colIndex := minIndex firstcol
+        -- the distance between the two non zero elements in first column
+        -- is the degree of second polynomial, m
+        m := position((x : R) : Boolean +->x ~= 0, delete(firstcol, colIndex))
+                 + 1 - colIndex
+        n := len - m
         j >= min(n, m) => error "index is too big for this SylvesterMatrix"
-        rowRange : LI := concat(expand(minR..(minR+m-1-j))$SI,
-                                expand((minR+m)..(maxR-j))$SI)
-        colRange : LI := expand(minC..maxC)$SI
-        subMatrix(sylmat, rowRange, colRange)
+        rowRange : List(SI) := [minR - 1 + (1..(m - j)),
+                                (minR + m)..(maxR - j)]
+        colRange : SI := minC..maxC
+        sylmat(rowRange, colRange)
 
     subSylvesterMatrix(sylmat, j, i) ==
         i > j => error "subSylvesterMatrix: i can't be larger than j"
         sylmat := subSylvesterMatrix(sylmat, j)
         minR := minRowIndex sylmat; minC := minColIndex sylmat
         maxR := maxRowIndex sylmat; maxC := maxColIndex sylmat
-        rowRange : LI := expand(minR..maxR)$SI
-        colRange : LI := concat(expand(minC..(maxC-minC-2*j))$SI,
-                                maxC-minC+1-i-j)
-        subMatrix(sylmat, rowRange, colRange)
+        rowRange : SI := minR..maxR
+        colRange : List(SI) := [minC..(maxC - 2*j - 1), convert(maxC - i - j)]
+        sylmat(rowRange, colRange)
 
     bezoutMatrix(p, q) ==
     -- This function computes the Bezout matrix for 'p' and 'q'.

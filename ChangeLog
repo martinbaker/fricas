@@ -1,3 +1,173 @@
+2016-11-01  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/algebra/intaf.spad: Avoid spurious simplification
+
+2016-10-15  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/algebra/combinat.spad, src/algebra/partperm.spad:
+	Support odd and distinct partitions
+
+2016-10-13  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/algebra/bezout.spad: Simplify
+
+2016-10-13  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/interp/g-boot.boot, src/interp/macros.lisp,
+	src/interp/postpar.boot, src/interp/property.lisp:
+	Cleanup, remove wrong transformation
+
+2016-10-13  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/algebra/limitps.spad, src/algebra/mrv_limit.spad:
+	Allow variable in limit point
+
+2016-10-13  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/algebra/logic.spad: Fix function names
+
+2016-10-13  Qian Yun  <oldk1331@gmail.com>
+
+	* src/algebra/pfr.spad: Misc fixes and improvements
+
+2016-10-13  Qian Yun  <oldk1331@gmail.com>
+
+	* src/algebra/bezout.spad: Generalize column indexing
+
+2016-10-11  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/algebra/acplot.spad, src/algebra/aggcat.spad,
+	src/algebra/array1.spad, src/algebra/clip.spad,
+	src/algebra/combfunc.spad, src/algebra/defintef.spad,
+	src/algebra/defintrf.spad, src/algebra/draw.spad,
+	src/algebra/drawpak.spad, src/algebra/fortran.spad,
+	src/algebra/genups.spad, src/algebra/liouv.spad,
+	src/algebra/mesh.spad, src/algebra/plot.spad,
+	src/algebra/plot3d.spad, src/algebra/plottool.spad,
+	src/algebra/random.spad, src/algebra/scene.spad,
+	src/algebra/seg.spad, src/algebra/stream.spad,
+	src/algebra/string.spad, src/algebra/sum.spad,
+	src/algebra/view2D.spad, src/interp/i-spec1.boot: Replace
+	'lo' by 'low' and 'hi' by 'high'
+
+2016-10-10  Qian Yun  <oldk1331@gmail.com>
+
+	* src/algebra/bezout.spad: Fix indexing error
+
+2016-10-08  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/algebra/pdecomp.spad: Remove
+	src/algebra/updecomp.spad: Extend to nonzero characteristic
+	src/algebra/Makefile.in, src/algebra/algfunc.spad,
+	src/algebra/exposed.lsp: Adjust
+
+2016-10-07  Martin Baker  <ax87438@martinb.com>
+
+	* src/algebra/gpresent.spad: Fix and improve
+
+2016-10-01  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/interp/Makefile.in, src/interp/util.lisp:
+	Include whole interpreter in the executable
+
+2016-10-01  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/algebra/oct.spad: Sanitize Octonion
+
+2016-09-27  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/algebra/lie.spad: Remove wrong exports
+
+2016-09-27  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/algebra/computation.spad, src/algebra/newpoly.spad,
+	src/interp/cattable.boot, src/interp/i-funsel.boot:
+	Minor cleanups
+
+2016-09-25  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/algebra/algcat.spad: Add FramedModule
+	src/algebra/Makefile.in, src/algebra/naalgc.spad
+
+2016-09-25  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/algebra/Makefile.in, src/algebra/divisor.spad:
+	Rename FramedModule to FractionalIdealAsModule
+
+2016-09-25  Martin Baker  <ax87438@martinb.com>
+
+	* src/algebra/gpresent.spad: Fix regression in
+	coercion to OutputForm
+
+2016-09-24  Martin Baker  <ax87438@martinb.com>
+	    Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/algebra/alg_top.spad: Add more examples
+	src/algebra/Makefile.in: Adjust
+
+2016-09-24  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	Consolidate and cleanup Boot files
+	* src/interp/bc-util.bootsrc/interp/dq.boot,
+	src/interp/i-util.boot: Remove, move contend to
+	other files
+	src/interp/Makefile.in, src/interp/br-util.boot,
+	src/interp/buildom.boot, src/interp/g-opt.boot,
+	src/interp/g-util.boot, src/interp/i-code.boot,
+	src/interp/i-coerfn.boot, src/interp/i-syscmd.boot,
+	src/interp/interop.boot, src/interp/modemap.boot,
+	src/interp/pile.boot: Cleanup and adjust
+
+2016-09-23  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/interp/compiler.boot: Regularize compiler
+	coercion to OutputFrom
+	src/algebra/*: Adjust
+
+2016-09-21  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/interp/br-con.boot, src/interp/i-code.boot,
+	src/interp/i-eval.boot, src/interp/i-spec2.boot,
+	src/interp/i-toplev.boot, src/interp/int-top.boot:
+	Misc cleanups
+
+2016-09-21  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/algebra/alql.spad: Replace Lisp calls by Spad code
+	src/interp/alql.boot: Remove, move remaining functions to
+	src/interp/br-search.boot, src/interp/match.boot
+	src/interp/Makefile.in: Adjust
+
+2016-09-21  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* alg_top.spad: Fix removal of duplicates in
+	'addImpliedFaces'
+
+2016-09-20  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/interp/newfort.boot: Remove, move code to
+	src/algebra/fortout.spad
+	src/interp/br-op1.boot, src/algebra/fortran.spad,
+	src/interp/Makefile.in: Adjust
+
+2016-09-18  Martin Baker  <ax87438@martinb.com>
+
+	* src/algebra/computation.spad: Fix coerce
+
+2016-09-16  Martin Baker  <ax87438@martinb.com>
+
+	* src/algebra/computation.spad: Update
+
+2016-09-15  Qian Yun  <oldk1331@gmail.com>
+
+	* src/algebra/list.spad: Repeat defintion of map!
+	for better speed
+
+2016-09-15  Waldek Hebisch  <hebisch@math.uni.wroc.pl>
+
+	* src/interp/nrungo.boot: Make inlining effective in
+	interpreter
+
 2016-09-15  Qian Yun  <oldk1331@gmail.com>
 
 	* src/algebra/list.spad: Repeat defintion of map!
