@@ -366,7 +366,7 @@ simplify_cond1(catname, cond) ==
         #rl = 1 => first(rl)
         ["AND", :rl]
     cond
- 
+
 simplify_cond2(vec, cond) ==
     vec.(0) = nil => cond
     simplify_cond1(vec.(0), cond)
@@ -413,7 +413,6 @@ join_fundamental_ancestors(vec0, l) ==
 JoinInner(l,$e) ==
   NewCatVec := nil
   CondList := nil
-  CondList2 := nil
   for u in l repeat
     for at in u.2 repeat
       at2:= first at
