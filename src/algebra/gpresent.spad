@@ -339,7 +339,8 @@ GroupPresentation() : Exports == Impl where
       ++ acting on integers 1, ..., N.
     toPermutationIfCan : (a : %) -> Union(PermutationGroup Integer, "failed")
       ++ convert to permutation group return "failed" for infinite groups.
-    toPermutationIfCan : (a : %, trace : Boolean) -> Union(PermutationGroup Integer, "failed")
+    toPermutationIfCan : (a : %, trace : Boolean)
+                          -> Union(PermutationGroup Integer, "failed")
       ++ convert to permutation group return "failed" for infinite groups.
 
   Impl ==> add
@@ -933,7 +934,8 @@ GroupPresentation() : Exports == Impl where
        --      message " point=" << point << _
        --      message " rev=" << rev)
        if genIndex = 0 then return 0
-       if xor(genIndex > 0,rev) then -- genIndex is positive or reverse but not both
+       if xor(genIndex > 0,rev) then
+           -- genIndex is positive or reverse but not both
            return elt(generators,point,abs(genIndex))
        -- If we reach this point then we need to do reverse lookup.
        numberPoints : NNI := maxRowIndex(generators) :: NNI
@@ -955,14 +957,16 @@ GroupPresentation() : Exports == Impl where
                       rels : List(List(Integer)),trace : Boolean) : Boolean ==
        generators : TwoDimensionalArray NNI := deref(gensR)
        numberPoints : NNI := maxRowIndex(generators) :: NNI
-       --print(message "inferFromRelations enter generators=" << generators << _
-       --      message " rels=" << rels << message " numberPoints=" << numberPoints)
+       --print(message "inferFromRelations enter generators=" <<
+       --   generators <<  message " rels=" << rels <<
+       --     message " numberPoints=" << numberPoints)
        for r in rels repeat
            -- in r look for gap of 1 step
            relWidth : NNI := #r
            for pn in 1..numberPoints repeat
-               -- forwardSequence and backwardSequence are not used in the actual
-               -- algorithm but they are shown in the trace to show what is happening.
+               -- forwardSequence and backwardSequence are not used in the
+               -- actual algorithm but they are shown in the trace to show
+               -- what is happening.
                forwardSequence : List(NNI) := []
                backwardSequence : List(NNI) := []
                gb : NNI := 0 -- generator index in forward sequence
@@ -995,7 +999,8 @@ GroupPresentation() : Exports == Impl where
                        pb:=pe
                        pe:=x
                    if trace then
-                       print(message "inferFromRelations found a gap of 1 so deduction made")
+                       print(message("inferFromRelations found a gap "
+                                     "of 1 so deduction made"))
                        print(message "gap is in relator table:" << r)
                        print(message "distance from start:" << gb << _
                              message " from end:" << ge)
@@ -1004,7 +1009,7 @@ GroupPresentation() : Exports == Impl where
                              message " new value:" << pe)
                        print(message "generator index=" << genIn << _
                              message " invm=" << invm)
-                       print(message "forwardSequence:" << forwardSequence << _
+                       print(message "forwardSequence:" << forwardSequence <<
                              message " backwardSequence:" << backwardSequence)
                    if elt(generators,pb,genIn) ~= 0 then
                        print(message "setelt!(" << generators << _
@@ -1012,7 +1017,8 @@ GroupPresentation() : Exports == Impl where
                              message "," << genIn << _
                              message "," << pe << _
                              message ")")
-                       error "inferFromRelations: coding error attempt to set non-zero value"
+                       error "inferFromRelations: coding error attempt"
+                             " to set non-zero value"
                    if trace then
                        print(message "inferFromRelations genIn=" << genIn << _
                              message " gb=" << gb)
@@ -1036,7 +1042,8 @@ GroupPresentation() : Exports == Impl where
                if elt(generators,gn,gp) = 0 then
                    --print(message "addPoint: gp=" << gp)
                    if trace then
-                       print(message "addPoint: cannot deduce more so adding a point")
+                       print(message("addPoint: cannot deduce more so adding"
+                                     " a point"))
                        print(message "adding:" << gp << _
                               message " at row:" << gn)
                    setelt!(generators,gn,gp,numberPoints+1)
@@ -1067,7 +1074,8 @@ GroupPresentation() : Exports == Impl where
        generators : TwoDimensionalArray NNI := deref(gensR)
        genLists : List TwoDimensionalArray NNI := _
                   horizSplit(generators,ncols(generators) :: PositiveInteger)
-       invGenLists : List TwoDimensionalArray NNI := [invertMap(a) for a in genLists]
+       invGenLists : List TwoDimensionalArray NNI :=
+                            [invertMap(a) for a in genLists]
        relators : List TwoDimensionalArray NNI := []
        for r in rels repeat
            relator : TwoDimensionalArray NNI := new(0,0,0)
@@ -1120,10 +1128,11 @@ GroupPresentation() : Exports == Impl where
 
    -- Convert to permutation group. Return "failed" for infinite groups.
    -- This function implements the Todd-Coxeter algorithm.
-   toPermutationIfCan(a : %,trace : Boolean) : Union(PermutationGroup Integer, "failed") ==
+   toPermutationIfCan(a : %,trace : Boolean
+                     ) : Union(PermutationGroup Integer, "failed") ==
        numberPoints : NNI := 1
-       -- numberPoints is the number of points being permuted. This starts at 1 and
-       -- increases when required to fill in a gap in relator tables.
+       -- numberPoints is the number of points being permuted. This starts
+       -- at 1 and increases when required to fill in a gap in relator tables.
        gs : List(NNI) := entries(a.gens)
        rs : List(List(Integer)) := a.rels
        if #gs=0 and #rs=0 then
@@ -1149,7 +1158,8 @@ GroupPresentation() : Exports == Impl where
                if not validateGenerators(gensR) then
                    error "toPermutationIfCan: zeroes in generators"
                return generators2Permutation(gensR)
-           if trace then print(message "relatorTables=" << relatorTables(gensR,rs))
+           if trace then print(message "relatorTables=" <<
+                               relatorTables(gensR,rs))
        "failed"
 
    -- output
