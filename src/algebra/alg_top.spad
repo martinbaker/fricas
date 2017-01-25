@@ -1579,7 +1579,8 @@ FiniteSimplicialComplex(VS : AbelianGroup) : Exports == Impl where
   x<<y ==> hconcat(x::OutputForm, y::OutputForm)
 
   Exports ==> SetCategory() with
-    simplicialComplex : (v : List(VS), numPoints:NNI, fs : List(List(NNI))) -> %
+    simplicialComplex : (v : List(VS), numPoints:NNI,
+                         fs : List(List(NNI))) -> %
       ++ constructor where the simplices are supplied
     simplicialComplex : (v : List(VS), fs : List(List(NNI))) -> %
       ++ constructor where the simplices are supplied
@@ -1671,8 +1672,8 @@ FiniteSimplicialComplex(VS : AbelianGroup) : Exports == Impl where
       ++ which are not used.
       ++ This will attempt to simplify the group presentation, if you
       ++ don't want this use alternative function of same name.
-      ++ TODO write a faster implemetation which only generates edge and
-      ++ triangle faceMaps.
+      -- TODO write a faster implemetation which only generates edge and
+      -- triangle faceMaps.
       ++ For more information:
       ++ \url{http://www.euclideanspace.com/prog/scratchpad/mycode/topology/homotopy/index.htm}
     fundamentalGroup : (s : %, simplify : Boolean, trace : Boolean) -> GroupPresentation
@@ -1681,8 +1682,8 @@ FiniteSimplicialComplex(VS : AbelianGroup) : Exports == Impl where
       ++ fundamentalGroup from that. This is not the most efficient method
       ++ because the conversion generates lots of higher order faceMaps
       ++ which are not used.
-      ++ TODO write a faster implementation which only generates edge and
-      ++ triangle faceMaps.
+      -- TODO write a faster implementation which only generates edge and
+      -- triangle faceMaps.
       ++ This version has options to:
       ++ simplify - if true attempts to simplify the group presentation
       ++ trace - if true outputs trace of simplification rules used.
@@ -1724,7 +1725,8 @@ FiniteSimplicialComplex(VS : AbelianGroup) : Exports == Impl where
    Rep := Record(VERTSET : List(VS),NUMPOINTS : NNI, SIMP : List(OrientedFacet))
 
    -- constructor where the vertex set and simplices are supplied
-   simplicialComplex(v : List(VS),numPoints:NNI, fs : List(List(NNI))) : % ==
+   simplicialComplex(v : List(VS), numPoints : NNI, fs : List(List(NNI))
+                    ) : % ==
        --print("simplicialComplex(" << fs << ")")
        res := []$List(OrientedFacet)
        for f in fs repeat
@@ -1759,7 +1761,8 @@ FiniteSimplicialComplex(VS : AbelianGroup) : Exports == Impl where
    -- \url{http://www.euclideanspace.com/prog/scratchpad/mycode/topology/delta/delta2simplex/index.htm}
    simplicialComplexIfCan(dc : DeltaComplex(VS),trace : Boolean) : _
             Union(%, "failed") ==
-       if trace then print("simplicialComplex(" << dc << ")")
+       if trace then
+           print(message("simplicialComplex(") << dc << message(")"))
        dcrep := dc pretend Record(VERTSET : List(VS), _
                                   MAPS : List(List(List(Integer))))
        NumPoints : NNI := 0
@@ -1813,7 +1816,7 @@ FiniteSimplicialComplex(VS : AbelianGroup) : Exports == Impl where
        -- remove any facets that are contained in higher facets
        for r in deleteList repeat
            res := remove(r, res)
-       if trace then print("simplicialComplex construct res=" << res)
+       if trace then print(message("simplicialComplex construct res=") << res)
        [vertset,NumPoints, res]
 
    -- Add a facet to this simplex
@@ -2161,8 +2164,7 @@ FiniteSimplicialComplex(VS : AbelianGroup) : Exports == Impl where
    coChain(s : %) : CoChainComplex(VS) ==
        dc : DeltaComplex(VS) := deltaComplex(_
                    s pretend FiniteSimplicialComplex(VS))
-       cc : CoChainComplex(VS) := coChain(dc)$DeltaComplex(VS)
-       cc
+       coChain(dc)$DeltaComplex(VS)
 
    -- calculate homology using SmithNormalForm
    homology(s : %) : List(Homology) ==
@@ -2799,18 +2801,20 @@ DeltaComplex(VS : AbelianGroup) : Exports == Impl where
        -- first grade and add implied faces
        allFacets : List(List(OrientedFacet)) := addImpliedFaces(fsc)
        if trace then
-           print("deltaComplex(" << fsc << ") allFacets=" << allFacets)
+           print(message("deltaComplex(") << fsc <<
+                 message(") allFacets=") << allFacets)
        -- sort each grade
        allFacetsGraded := [sort(l) for l in allFacets
                           ]$List(List(OrientedFacet))
        if trace then
-           print("deltaComplex allFacetsGraded=" << allFacetsGraded )
-       -- now change base indexed to heirarcical indexed
+           print(message("deltaComplex allFacetsGraded=") << allFacetsGraded )
+       -- now change base indexed to hierarchical indexed
        faceMaps := []$List(List(List(Integer)))
        previousFaceList := []$List(OrientedFacet)
        for gradeList in allFacetsGraded for grn in 1..(#allFacetsGraded) repeat
            if trace then
-               print("deltaComplex grad num=" << grn << "=" << gradeList)
+               print(message("deltaComplex grad num=") << grn <<
+                     message("=") << gradeList)
            -- start with a list of empty lists
            map1 := []$List(List(Integer))
            if grn = 1 then
@@ -2824,8 +2828,9 @@ DeltaComplex(VS : AbelianGroup) : Exports == Impl where
                    -- fm is signed list of verticies
                    map2 := cons(fm, map2)
                    if trace then
-                       print("  deltaComplex getIndexesSigned(" << x <<
-                             ") fm=" << fm << " map2=" << map2)
+                       print(message("  deltaComplex getIndexesSigned(") <<
+                             x << message(") fm=") << fm <<
+                             message(" map2=") << map2)
                -- first determine number of points
                m:NNI := fscRep.NUMPOINTS
                for smp in map2 repeat
@@ -2833,7 +2838,7 @@ DeltaComplex(VS : AbelianGroup) : Exports == Impl where
                        m3 : NNI := abs(m2) :: NNI
                        if m3>m then m := m3
                if trace then
-                   print("  deltaComplex m=" << m)
+                   print(message("  deltaComplex m=") << m)
                -- now set 'pointsUsed' which holds list with
                -- true for points which are used.
                pointsUsed : List(Boolean) := new(m,false)
@@ -2844,8 +2849,9 @@ DeltaComplex(VS : AbelianGroup) : Exports == Impl where
                -- now generate array with entry for each point
                map1 := [if x then [0] else [] for x in pointsUsed]
                if trace then
-                   print("  deltaComplex m=" << m << " map2=" << _
-                        map2 << " map1=" << map1)
+                   print(message("  deltaComplex m=") << m <<
+                         message(" map2=") << map2 <<
+                         message(" map1=") << map1)
                map1 := reverse(map1)
            else
                -- edges and above
@@ -2857,9 +2863,11 @@ DeltaComplex(VS : AbelianGroup) : Exports == Impl where
                    newIndexes := []$List(Integer)
                    for oldFaceLow in oldFacesLow repeat
                        if trace then
-                           print("    deltaComplex oldFaceLow=" << oldFaceLow <<
-                                 " previousFaceList=" << previousFaceList << _
-                                 " allFacetsGraded.1=" << allFacetsGraded.1)
+                           print(message("    deltaComplex oldFaceLow=") <<
+                                 oldFaceLow << message(" previousFaceList=")
+                                 << previousFaceList << _
+                                 message(" allFacetsGraded.1=") <<
+                                 allFacetsGraded.1)
                        i := position(oldFaceLow, previousFaceList
                                     )$OrientedFacet
                        if i = 0 then
@@ -2874,7 +2882,7 @@ DeltaComplex(VS : AbelianGroup) : Exports == Impl where
            previousFaceList := gradeList
        vs : List(VS) := fscRep.VERTSET
        if trace then
-           print("deltaComplex faceMaps=" << faceMaps )
+           print(message("deltaComplex faceMaps=") << faceMaps )
        [vs, faceMaps]
 
    -- construct from FiniteCubicalComplex. This builds indexes of
