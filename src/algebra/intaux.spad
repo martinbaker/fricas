@@ -5,7 +5,7 @@
 ++ Description:
 ++ If a function f has an elementary integral g, then g can be written
 ++ in the form \spad{g = h + c1 log(u1) + c2 log(u2) + ... + cn log(un)}
-++ where h, which is in the same field than f, is called the rational
+++ where h, which is in the same field as f, is called the rational
 ++ part of the integral, and \spad{c1 log(u1) + ... cn log(un)} is called the
 ++ logarithmic part of the integral. This domain manipulates integrals
 ++ represented in that form, by keeping both parts separately. The logs
@@ -77,7 +77,6 @@ IntegrationResult(F : Field) : Exports == Implementation where
       integral(f : F, x : Symbol) : % == integral(f, x::F)
 
     LOG2O rec ==
---      one? degree rec.coeff =>
       (degree rec.coeff) = 1 =>
         -- deg 1 minimal poly doesn't get sigma
         lastc := - coefficient(rec.coeff, 0) / coefficient(rec.coeff, 1)
@@ -130,7 +129,6 @@ IntegrationResult(F : Field) : Exports == Implementation where
                + _+/[pNeDeriv(ne, derivation) for ne in notelem u]
 
     pNeDeriv(ne, derivation) ==
---      one? derivation(ne.intvar) => ne.integrand
       (derivation(ne.intvar) = 1) => ne.integrand
       zero? derivation(ne.integrand) => 0
       error "pNeDeriv: cannot differentiate not elementary part into F"
@@ -138,7 +136,6 @@ IntegrationResult(F : Field) : Exports == Implementation where
     pLogDeriv(log, derivation) ==
       map(derivation, log.coeff) ~= 0 =>
         error "pLogDeriv: can only handle logs with constant coefficients"
---      one?(n := degree(log.coeff)) =>
       ((n := degree(log.coeff)) = 1) =>
         c   := - (leadingCoefficient reductum log.coeff)
                                         / (leadingCoefficient log.coeff)
@@ -159,7 +156,7 @@ IntegrationResult(F : Field) : Exports == Implementation where
       l := reverse! [LOG2O f for f in logpart u]$List(O)
       if ratpart u ~= 0 then l := concat(ratpart(u)::O, l)
       if not elem? u then l := concat([NE2O f for f in notelem u], l)
-      null l => 0::O
+      empty?(l) => 0::O
       reduce("+", l)
 
     NE2O ne ==
@@ -327,7 +324,6 @@ IntegrationTools(R : Comparable, F : FunctionSpace R) : Exp == Impl where
       linearLog?(k, f, x) ==
         is?(k, 'log) and
          ((u := retractIfCan(univariate(f,k))@Union(UP,"failed")) case UP)
---             and one?(degree(u::UP))
              and (degree(pol := u::UP) = 1)
                 and not member?(x, variables leadingCoefficient(pol))
                    and ((p0 := reductum(pol)) = 0 or

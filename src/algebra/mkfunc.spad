@@ -88,7 +88,6 @@ InputForm():
 
     convert(x : DoubleFloat) : % ==
       zero? x => 0
---      one? x => 1
       (x = 1) => 1
       convert(x)$Rep
 
@@ -105,7 +104,7 @@ InputForm():
                [u.symb for u in l2]))@%]$List(%))@%)))@%
 
     flatten0(s, sy, n) ==
-      atom? s => [nil(), s]
+      atom? s => [[], s]
       a := convert(concat(string sy, convert(n)@String)::Symbol)@%
       l2 := [flatten0(x, sy, n := n+1) for x in rest(l := destruct s)]
       [concat(concat [u.lst for u in l2], conv([convert(
@@ -131,7 +130,7 @@ InputForm():
     compile(name, types) ==
       symbol car cdr car
         selectLocalMms(mkProperOp name, convert(name)@%,
-          types, nil$List(%))$Lisp
+          types, []$List(%))$Lisp
 
     mkProperOp name ==
       op : % := mkAtree(nme := convert(name)@%)$Lisp
@@ -149,7 +148,7 @@ InputForm():
         concat(convert('Tuple), [convert x for x in l]$List(%))
 
     function(f, l, name) ==
-      nn := convert(new(1 + #l, convert(nil()$List(%)))$List(%))@%
+      nn := convert(new(1 + #l, convert([]$List(%)))$List(%))@%
       conv([convert('DEF), conv(cons(convert(name)@%,
                         [convert(x)@% for x in l])), nn, nn, f]$List(%))
 
@@ -167,7 +166,6 @@ InputForm():
     s1 : % ^ n : Integer ==
       s1 = 0 and n > 0 => 0
       s1 = 1 or zero? n => 1
---      one? n => s1
       (n = 1) => s1
       conv [convert("^"::Symbol), s1, convert n]$List(%)
 
@@ -246,7 +244,7 @@ MakeFunction(S : ConvertibleTo InputForm) : Exports == Implementation where
       ++ \spad{foo(x1, ..., xn) == e}.
 
   Implementation ==> add
-    function(s, name)            == function(s, name, nil())
+    function(s, name)            == function(s, name, [])
     function(s : S, name : SY, x : SY) == function(s, name, [x])
     function(s, name, x, y)      == function(s, name, [x, y])
 
@@ -412,7 +410,7 @@ MakeFloatCompiledFunction(S) : Exports == Implementation where
       unaryFunction compile(spadname, t)
 
     mkLispList l ==
-      ans := nil()$List(INF)
+      ans := []$List(INF)
       for s in l repeat
         (u := mkLisp s) case "failed" => return "failed"
         ans := concat(u::INF, ans)
@@ -425,7 +423,10 @@ MakeFloatCompiledFunction(S) : Exports == Implementation where
       (u := mkLispList rest l) case "failed" => "failed"
       ll := u::List(INF)
       streqlist?(op, ["+","*","/","-"]) => convert(concat(op, ll))@INF
-      streq?(op, "^") => gencode("EXPT", ll)
+      streq?(op, "^") =>
+          integer?(ii := l(3)) =>
+              gencode("EXPT", [ll(1), ii])
+          gencode("EXPT", ll)
       streqlist?(op, ["exp","sin","cos","tan","atan","asin","acos",
          "log", "sinh","cosh","tanh","asinh","acosh","atanh","sqrt"]) =>
             gencode(upperCase string symbol op, ll)

@@ -247,9 +247,7 @@ FreeMonoid(S : SetCategory) : FMcategory == FMdefinition where
         s : S ^ n : NonNegativeInteger == makeTerm(s, n)
 
         f : % * g : % ==
---            one? f => g
             (f = 1) => g
---            one? g => f
             (g = 1) => f
             lg := listOfMonoms g
             ls := last(lf := listOfMonoms f)
@@ -259,7 +257,6 @@ FreeMonoid(S : SetCategory) : FMcategory == FMdefinition where
             makeMulti concat(lf, lg)
 
         overlap(la, ar) ==
---            one? la or one? ar => [la, 1, ar]
             (la = 1) or (ar = 1) => [la, 1, ar]
             lla := la0 := listOfMonoms la
             lar := listOfMonoms ar
@@ -287,7 +284,6 @@ FreeMonoid(S : SetCategory) : FMcategory == FMdefinition where
             [makeMulti la0, 1, makeMulti lar]
 
         divide(lar, a) ==
---            one? a => [lar, 1]
             (a = 1) => [lar, 1]
             Na   : Integer := #(la := listOfMonoms a)
             Nlar : Integer := #(llar := listOfMonoms lar)
@@ -331,7 +327,7 @@ FreeMonoid(S : SetCategory) : FMcategory == FMdefinition where
 
         lquo(w : %, l : S) ==
             x : List REC := listOfMonoms(w)$Rep
-            null x        => "failed"
+            empty?(x) => "failed"
             fx : REC := first x
             fx.gen ~= l  => "failed"
             fx.exp = 1   => makeMulti rest(x)
@@ -360,12 +356,12 @@ FreeMonoid(S : SetCategory) : FMcategory == FMdefinition where
 
         first w ==
             x : List REC := listOfMonoms w
-            null x => error "empty word !!!"
+            empty?(x) => error "empty word !!!"
             x.first.gen
 
         rest w ==
             x : List REC := listOfMonoms w
-            null x => error "empty word !!!"
+            empty?(x) => error "empty word !!!"
             fx : REC := first x
             fx.exp = 1 => makeMulti rest x
             makeMulti [[fx.gen, (fx.exp - 1)::NNI ]$REC, : rest x]
